@@ -12,13 +12,19 @@ export class Game {
         window.addEventListener('resize', () => this.resize());
         window.addEventListener('keydown', (e) => {
             
-            // --- NEU: Spiel beenden per Q-Taste über die Python-Schnittstelle ---
-            if (e.code === 'KeyQ') {
-                if (window.pywebview && window.pywebview.api) {
-                    window.pywebview.api.quit_game(); // Beendet die App via Python
-                } else {
-                    window.close(); // Fallback für normale Webbrowser
+            // --- NEU: Sicherere Abfrage für Q und Escape ---
+            if (e.key === 'q' || e.key === 'Q' || e.key === 'Escape') {
+                try {
+                    // Versuche das Fenster über die Python-API zu "killen"
+                    if (window.pywebview && window.pywebview.api) {
+                        window.pywebview.api.quit_game();
+                    }
+                } catch (err) {
+                    console.error("Pywebview API nicht erreichbar", err);
                 }
+                
+                // Fallback: Normales Schließen immer zusätzlich aufrufen
+                window.close(); 
             }
             // ----------------------------------------
 
