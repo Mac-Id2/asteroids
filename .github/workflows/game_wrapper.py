@@ -1,0 +1,104 @@
+name: Build Web Game
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    name: Build auf ${{ matrix.artifact_name }}
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            artifact_name: windows-x64
+          - os: ubuntu-22.04
+            artifact_name: linux-x64
+          - os: macos-latest
+            artifact_name: macos-arm64
+          - os: macos-13
+            artifact_name: macos-amd64
+
+    steps:
+      - name: Code auschecken
+        uses: actions/checkout@v4
+
+      - name: Python installieren
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Abhängigkeiten installieren
+        run: |
+          python -m pip install --upgrade pip
+          pip install pywebview pyinstaller
+
+      - name: Wrapper-Skript automatisch erstellen
+        shell: bash
+        run: |
+          cat << 'EOF' > game_wrapper.py
+          import webview
+          import os
+          import sys
+
+          if hasattr(sys, '_MEIPASS'):
+              base_path = sys._MEIPASS
+          else:
+              base_path = os.path.abspath(".")
+
+          html_file = os.path.join(base_path, 'src', 'index.html')
+
+          webview.create_window('Asteroids', html_file, fullscreen=True)
+          webview.start()
+          EOF
+
+      - name: PyInstaller Build
+        shell: bash
+        run: |
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            pyinstaller --noconsole --name game --add-data "src;src" game_wrapper.py
+          else
+            pyinstaller --noconsole --name game --add-data "src:src" game_wrapper.py
+          fi
+
+      - name: Archivieren
+        shell: bash
+        run: |
+          if [ "${{ runner.os }}" = "Linux" ] || [ "${{ runner.os }}" = "macOS" ]; then
+            cd dist/game && zip -r "../../Game-${{ matrix.artifact_name }}.zip" .
+          else
+            python -c "import shutil; shutil.make_archive('Game-${{ matrix.artifact_name }}', 'zip', 'dist/game')"
+          fi
+
+      - name: Artifact hochladen
+        uses: actions/upload-artifact@v4
+        with:
+          name: Game-${{ matrix.artifact_name }}
+          path: Game-${{ matrix.artifact_name }}.zip
+          retention-days: 7
+
+  release:
+    name: GitHub Release erstellen
+    runs-on: ubuntu-latest
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
+    steps:
+      - name: Alle Artifacts herunterladen
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Release erstellen und Assets hochladen
+        uses: softprops/action-gh-release@v2
+        with:
+          files: artifacts/**/*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
