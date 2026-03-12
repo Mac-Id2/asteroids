@@ -11,9 +11,14 @@ export class Game {
         // RESIZE SETUP
         window.addEventListener('resize', () => this.resize());
         window.addEventListener('keydown', (e) => {
-            // --- NEU: Spiel beenden per Q-Taste ---
+            
+            // --- NEU: Spiel beenden per Q-Taste über die Python-Schnittstelle ---
             if (e.code === 'KeyQ') {
-                window.close();
+                if (window.pywebview && window.pywebview.api) {
+                    window.pywebview.api.quit_game(); // Beendet die App via Python
+                } else {
+                    window.close(); // Fallback für normale Webbrowser
+                }
             }
             // ----------------------------------------
 
