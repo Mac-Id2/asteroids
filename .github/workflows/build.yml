@@ -47,6 +47,11 @@ jobs:
           import os
           import sys
 
+          # --- NEU: Eine Schnittstelle für JavaScript ---
+          class GameAPI:
+              def quit_game(self):
+                  os._exit(0)  # Beendet das Programm sofort hart
+
           if hasattr(sys, '_MEIPASS'):
               base_path = sys._MEIPASS
           else:
@@ -54,7 +59,9 @@ jobs:
 
           html_file = os.path.join(base_path, 'src', 'index.html')
 
-          webview.create_window('Asteroids', html_file, fullscreen=True)
+          # Die API wird hier an das Fenster übergeben!
+          api = GameAPI()
+          webview.create_window('Asteroids', html_file, fullscreen=True, js_api=api)
           webview.start()
           EOF
 
