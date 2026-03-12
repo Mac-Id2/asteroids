@@ -11,6 +11,12 @@ export class Game {
         // RESIZE SETUP
         window.addEventListener('resize', () => this.resize());
         window.addEventListener('keydown', (e) => {
+            // --- NEU: Spiel beenden per Q-Taste ---
+            if (e.code === 'KeyQ') {
+                window.close();
+            }
+            // ----------------------------------------
+
             if (this.currentScene && this.currentScene.handleKeyDown) {
                 this.currentScene.handleKeyDown(e);
             }
