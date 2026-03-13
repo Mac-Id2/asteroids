@@ -38,17 +38,17 @@ jobs:
           python-version: '3.10'
 
       - name: System-Pakete installieren (Nur Linux)
-        if: runner.os == 'Linux'
+        if: matrix.artifact_name == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y pkg-config libgirepository1.0-dev gcc libcairo2-dev python3-dev gir1.2-gtk-3.0 libwebkit2gtk-4.1-dev
+          sudo apt-get install -y pkg-config libgirepository1.0-dev build-essential libgtk-3-dev libwebkit2gtk-4.1-dev python3-dev libcairo2-dev
 
       - name: Abhängigkeiten installieren
         shell: bash
         run: |
           python -m pip install --upgrade pip
           pip install "setuptools<69.0.0" pywebview pyinstaller bottle
-          if [[ "${{ runner.os }}" == "Linux" ]]; then
+          if [[ "${{ matrix.artifact_name }}" == "Linux" ]]; then
             pip install "PyGObject==3.48.2" pycairo
           fi
 
@@ -58,24 +58,24 @@ jobs:
           cat << 'EOF' > game_wrapper.py
           import os
           import sys
-          import traceback
 
-          # --- SCHRITT 1: SYSTEMPFADE REPARIEREN (Nur Linux) ---
+          # --- SCHRITT 1: DER LINUX-FIX (MUSS GANZ OBEN STEHEN) ---
           if sys.platform.startswith('linux') and getattr(sys, 'frozen', False):
-              # PyInstaller verbiegt LD_LIBRARY_PATH. Wir holen das Original zurück,
-              # damit WebKit die echten Grafiktreiber des Systems findet.
-              lp = os.environ.get('LD_LIBRARY_PATH_ORIG')
-              if lp:
-                  os.environ['LD_LIBRARY_PATH'] = lp
-              else:
-                  os.environ.pop('LD_LIBRARY_PATH', None)
-
-              # Behebt den Black Screen (Hardware-Beschleunigung unter Wayland aus)
-              os.environ['WEBKIT_DISABLE_COMPOSITING_MODE'] = '1'
+              # 1.1: Library-Pfad bereinigen (Verhindert den Absturz / "Failed to execute script")
+              # Wir löschen den Pfad, den PyInstaller gesetzt hat, damit WebKit die System-Treiber nutzt.
+              if 'LD_LIBRARY_PATH' in os.environ:
+                  del os.environ['LD_LIBRARY_PATH']
+              
+              # 1.2: Rendering-Fix (Verhindert den Black Screen unter Ubuntu 24.04)
               os.environ['WEBKIT_DISABLE_DMABUF_RENDERER'] = '1'
+              os.environ['WEBKIT_DISABLE_COMPOSITING_MODE'] = '1'
+              # Unterdrückt die Canberra-Warnung
+              os.environ['GTK_MODULES'] = ''
 
+          # --- SCHRITT 2: PROGRAMM STARTEN ---
           try:
               import webview
+              import bottle # Sicherstellen, dass bottle da ist
 
               class GameAPI:
                   def quit_game(self):
@@ -91,15 +91,18 @@ jobs:
                   html_file = os.path.join(base_path, 'index.html')
 
               api = GameAPI()
-              webview.create_window('Asteroids', html_file, fullscreen=True, js_api=api)
-              # http_server=True ist zwingend für JS-Module auf Linux!
-              webview.start(http_server=True)
-
-          except Exception:
-              # Falls es doch crasht, schreibe den Fehler in eine Datei
-              with open("error_log.txt", "w") as f:
-                  f.write(traceback.format_exc())
-              raise
+              # Wir schalten 'debug=True' ein, damit wir bei einem Black Screen mit Rechtsklick -> Inspect sehen, was los ist
+              window = webview.create_window('Asteroids', html_file, fullscreen=True, js_api=api)
+              
+              # http_server=True ist nötig, weil dein Spiel JS-Module nutzt (import ... from ...)
+              webview.start(http_server=True, debug=True)
+              
+          except Exception as e:
+              # Schreibt den Fehler direkt ins Terminal
+              print(f"\nFATALER FEHLER BEIM START: {e}")
+              import traceback
+              traceback.print_exc()
+              sys.exit(1)
           EOF
 
       - name: PyInstaller Build
@@ -110,7 +113,7 @@ jobs:
             arch -x86_64 pip install "setuptools<69.0.0" pywebview pyinstaller bottle --force-reinstall
             arch -x86_64 pyinstaller --noconsole --name game --add-data "src:src" game_wrapper.py
           elif [[ "${{ matrix.artifact_name }}" == "Linux" ]]; then
-            # NEU: --collect-all für Linux, um ALLE Grafik-Abhängigkeiten einzusammeln
+            # Wir packen ALLES ein, was mit Grafik zu tun hat
             pyinstaller --noconsole --name game \
               --collect-all gi \
               --collect-all webview \
@@ -120,6 +123,7 @@ jobs:
           elif [[ "${{ matrix.artifact_name }}" == "Windows" ]]; then
             pyinstaller --noconsole --name game --add-data "src;src" game_wrapper.py
           else
+            # Mac Silicon
             pyinstaller --noconsole --name game --add-data "src:src" game_wrapper.py
           fi
 
