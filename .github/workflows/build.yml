@@ -37,8 +37,7 @@ jobs:
         with:
           python-version: '3.10'
 
-      # WICHTIG: Dieser Schritt MUSS auf Linux laufen, bevor "pip install" kommt!
-      # Er installiert die Werkzeuge, die "pygobject" zum Kompilieren auf dem Server braucht.
+      # Installiert die Linux-Header, die zum Bauen des Moduls gebraucht werden.
       - name: System-Pakete installieren (Nur Linux)
         if: runner.os == 'Linux'
         run: |
@@ -50,9 +49,9 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install "setuptools<69.0.0" pywebview pyinstaller
-          # pygobject (die Grafik-Brücke) wird NUR auf Linux installiert, Windows braucht es nicht
+          # DER ENTSCHEIDENDE FIX: Wir erzwingen PyGObject 3.48.2, weil 3.56.1 auf Ubuntu crasht!
           if [[ "${{ runner.os }}" == "Linux" ]]; then
-            pip install pygobject pycairo
+            pip install "PyGObject==3.48.2" pycairo
           fi
 
       - name: Wrapper-Skript automatisch erstellen
@@ -78,17 +77,15 @@ jobs:
       - name: PyInstaller Build
         shell: bash
         run: |
-          # Exakte Struktur aus deiner SpaceInvaders.yml (Mac Intel, Windows, Linux, Mac Silicon)
+          # EXAKT wie in deiner SpaceInvaders YML
           if [[ "${{ matrix.artifact_name }}" == "Mac_Intel" ]]; then
             arch -x86_64 python -m pip install --upgrade pip
             arch -x86_64 pip install "setuptools<69.0.0" pywebview pyinstaller --force-reinstall
             arch -x86_64 pyinstaller --noconsole --name game --add-data "src:src" game_wrapper.py
           elif [[ "${{ matrix.artifact_name }}" == "Linux" ]]; then
-            # Linux sammelt "gi" ein und setzt Rechte
             pyinstaller --noconsole --name game --collect-all gi --collect-all webview --add-data "src:src" game_wrapper.py
             chmod +x dist/game/game || true
           elif [[ "${{ matrix.artifact_name }}" == "Windows" ]]; then
-            # Windows hat ein Semikolon bei add-data
             pyinstaller --noconsole --name game --add-data "src;src" game_wrapper.py
           else
             # Mac Silicon
@@ -105,10 +102,21 @@ jobs:
           name: Asteroids-${{ matrix.artifact_name }}
           path: Asteroids-${{ matrix.artifact_name }}.zip
 
-      - name: Release erstellen
-        if: startsWith(github.ref, 'refs/tags/')
+  release:
+    name: GitHub Release erstellen
+    runs-on: ubuntu-latest
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
+    steps:
+      - name: Alle Artifacts herunterladen
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+      - name: Release erstellen und Assets hochladen
         uses: softprops/action-gh-release@v2
         with:
-          files: Asteroids-${{ matrix.artifact_name }}.zip
+          files: artifacts/**/*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
