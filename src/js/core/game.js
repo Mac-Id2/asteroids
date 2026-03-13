@@ -123,8 +123,10 @@ export class Game {
             // Nur die Top 10 behalten
             scores = scores.slice(0, 10);
 
-            // Speichern mit Fail-Safe
-            localStorage.setItem(storageKey, JSON.stringify(scores));
+            // Speichern mit Fail-Safe für Linux
+            if (window.localStorage) {
+                localStorage.setItem(storageKey, JSON.stringify(scores));
+            }
 
         } catch (e) {
             console.error("Fehler beim Speichern des Highscores (Speicher voll oder blockiert):", e);
@@ -136,7 +138,12 @@ export class Game {
         const storageKey = 'asteroids_highscores';
         
         try {
-            const raw = localStorage.getItem(storageKey);
+            // Sicheres Laden für Linux
+            let raw = null;
+            if (window.localStorage) {
+                raw = localStorage.getItem(storageKey);
+            }
+            
             // Wenn Daten da sind parsen, sonst leeres Array
             const list = raw ? JSON.parse(raw) : [];
             
