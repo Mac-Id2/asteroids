@@ -58,31 +58,48 @@ jobs:
           cat << 'EOF' > game_wrapper.py
           import os
           import sys
+          import traceback
 
-          if sys.platform.startswith('linux'):
+          # --- SCHRITT 1: SYSTEMPFADE REPARIEREN (Nur Linux) ---
+          if sys.platform.startswith('linux') and getattr(sys, 'frozen', False):
+              # PyInstaller verbiegt LD_LIBRARY_PATH. Wir holen das Original zurück,
+              # damit WebKit die echten Grafiktreiber des Systems findet.
+              lp = os.environ.get('LD_LIBRARY_PATH_ORIG')
+              if lp:
+                  os.environ['LD_LIBRARY_PATH'] = lp
+              else:
+                  os.environ.pop('LD_LIBRARY_PATH', None)
+
+              # Behebt den Black Screen (Hardware-Beschleunigung unter Wayland aus)
               os.environ['WEBKIT_DISABLE_COMPOSITING_MODE'] = '1'
+              os.environ['WEBKIT_DISABLE_DMABUF_RENDERER'] = '1'
 
-          import webview
+          try:
+              import webview
 
-          class GameAPI:
-              def quit_game(self):
-                  os._exit(0)
+              class GameAPI:
+                  def quit_game(self):
+                      os._exit(0)
 
-          if hasattr(sys, '_MEIPASS'):
-              base_path = sys._MEIPASS
-          else:
-              base_path = os.path.abspath(".")
+              if hasattr(sys, '_MEIPASS'):
+                  base_path = sys._MEIPASS
+              else:
+                  base_path = os.path.abspath(".")
 
-          html_file = os.path.join(base_path, 'src', 'index.html')
-          if not os.path.exists(html_file):
-              html_file = os.path.join(base_path, 'index.html')
+              html_file = os.path.join(base_path, 'src', 'index.html')
+              if not os.path.exists(html_file):
+                  html_file = os.path.join(base_path, 'index.html')
 
-          api = GameAPI()
-          webview.create_window('Asteroids', html_file, fullscreen=True, js_api=api)
-          
-          # HIER IST DER FIX FÜR DEN BLACK SCREEN:
-          # Startet einen lokalen HTTP-Server, damit Linux das JS-Modul nicht blockiert!
-          webview.start(http_server=True)
+              api = GameAPI()
+              webview.create_window('Asteroids', html_file, fullscreen=True, js_api=api)
+              # http_server=True ist zwingend für JS-Module auf Linux!
+              webview.start(http_server=True)
+
+          except Exception:
+              # Falls es doch crasht, schreibe den Fehler in eine Datei
+              with open("error_log.txt", "w") as f:
+                  f.write(traceback.format_exc())
+              raise
           EOF
 
       - name: PyInstaller Build
@@ -90,16 +107,19 @@ jobs:
         run: |
           if [[ "${{ matrix.artifact_name }}" == "Mac_Intel" ]]; then
             arch -x86_64 python -m pip install --upgrade pip
-            arch -x86_64 pip install "setuptools<69.0.0" pywebview pyinstaller --force-reinstall
+            arch -x86_64 pip install "setuptools<69.0.0" pywebview pyinstaller bottle --force-reinstall
             arch -x86_64 pyinstaller --noconsole --name game --add-data "src:src" game_wrapper.py
           elif [[ "${{ matrix.artifact_name }}" == "Linux" ]]; then
-            # Hinzugefügt: --hidden-import bottle (wird für http_server=True benötigt)
-            pyinstaller --noconsole --name game --hidden-import gi --hidden-import bottle --add-data "src:src" game_wrapper.py
+            # NEU: --collect-all für Linux, um ALLE Grafik-Abhängigkeiten einzusammeln
+            pyinstaller --noconsole --name game \
+              --collect-all gi \
+              --collect-all webview \
+              --collect-all bottle \
+              --add-data "src:src" game_wrapper.py
             chmod +x dist/game/game || true
           elif [[ "${{ matrix.artifact_name }}" == "Windows" ]]; then
             pyinstaller --noconsole --name game --add-data "src;src" game_wrapper.py
           else
-            # Mac Silicon
             pyinstaller --noconsole --name game --add-data "src:src" game_wrapper.py
           fi
 
