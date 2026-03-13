@@ -4,7 +4,17 @@ export class GameUI {
         this.height = height;
 
         this.score = 0;
-        this.highScore = localStorage.getItem('asteroids_highscore') || 0;
+        
+        // --- FIX: Sicherer Zugriff auf localStorage ---
+        this.highScore = 0;
+        try {
+            if (window.localStorage) {
+                this.highScore = localStorage.getItem('asteroids_highscore') || 0;
+            }
+        } catch(e) {
+            console.warn("LocalStorage nicht verfügbar", e);
+        }
+
         this.lives = 3;
         this.fontSize = 20;
     }
@@ -18,7 +28,12 @@ export class GameUI {
         this.score += points;
         if (this.score > this.highScore) {
             this.highScore = this.score;
-            localStorage.setItem('asteroids_highscore', this.highScore);
+            // --- FIX: Sicherer Speicherzugriff ---
+            try {
+                if (window.localStorage) {
+                    localStorage.setItem('asteroids_highscore', this.highScore);
+                }
+            } catch(e) {}
         }
     }
 
@@ -32,10 +47,7 @@ export class GameUI {
 
     // Hilfsfunktion: Macht aus Sekunden eine schöne Uhrzeit (MM:SS)
     formatTime(totalSeconds) {
-        // Da totalSeconds jetzt deltaTime-Werte sind (z.B. 124.53),
-        // runden wir sie einfach ab.
         const roundedSeconds = Math.floor(totalSeconds);
-
         const minutes = Math.floor(roundedSeconds / 60);
         const seconds = roundedSeconds % 60;
 
@@ -45,42 +57,30 @@ export class GameUI {
         return `${minStr}:${secStr}`;
     }
 
-    // NEU: Nimmt 'currentTime' als Parameter entgegen
-    // NEU: Nimmt 'currentTime' als Parameter entgegen
     draw(ctx, activeWeapon = "Laser", currentTime) {
         ctx.save();
 
-        // Standard Schrift-Einstellungen
         ctx.font = `${this.fontSize}px "Courier New", Courier, monospace`;
         ctx.textBaseline = "top";
 
         // --- 1. HIGHSCORE (Oben Links) ---
-        // Wir machen ihn Gold/Gelb, damit er "edel" aussieht
         ctx.textAlign = "left";
         ctx.fillStyle = "#FFD700"; // Gold
         ctx.fillText(`HIGHSCORE: ${this.highScore}`, 20, 20);
 
-
         // --- 2. SCORE (Oben Mitte) ---
-        // Der Score soll leuchten und größer sein!
         ctx.textAlign = "center";
-
-        // Glow Effekt an
         ctx.shadowBlur = 15;
         ctx.shadowColor = "#00FFFF"; // Cyan leuchten
-
         ctx.fillStyle = "white";
-        ctx.font = "bold 30px 'Courier New', monospace"; // Etwas größer & fetter
+        ctx.font = "bold 30px 'Courier New', monospace"; 
         ctx.fillText(`${this.score}`, this.width / 2, 15);
 
-        // Glow Effekt wieder aus (wichtig für Performance & andere Texte)
         ctx.shadowBlur = 0;
-        ctx.font = `${this.fontSize}px "Courier New", Courier, monospace`; // Reset Font
+        ctx.font = `${this.fontSize}px "Courier New", Courier, monospace`; 
 
-
-        // --- 3. LEBEN (Oben Rechts - bleibt gleich) ---
+        // --- 3. LEBEN (Oben Rechts) ---
         this.drawLives(ctx);
-
 
         // --- UNTEN ---
         ctx.textBaseline = "bottom";
@@ -94,10 +94,6 @@ export class GameUI {
         ctx.fillStyle = "white";
         ctx.textAlign = "right";
         const timeString = this.formatTime(currentTime);
-
-
-        //console.log("UI - GameTime: " + currentTime);
-        //console.log("UI - GameTime String: " + timeString);
 
         ctx.fillText(`TIME: ${timeString}`, this.width - 20, this.height - 20);
 
