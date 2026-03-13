@@ -37,7 +37,7 @@ jobs:
         with:
           python-version: '3.10'
 
-      # Fix für Linux: Installiert die Header für Ubuntu 24.04 (Noble)
+      # Fix für Linux: Installiert die Header für den Build-Server
       - name: Install Build Dependencies (Linux Only)
         if: matrix.artifact_name == 'Linux'
         run: |
@@ -49,7 +49,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install pywebview pyinstaller
-          # pygobject NUR auf Linux installieren, um Windows-Absturz zu verhindern
+          # pygobject NUR auf Linux installieren, um Windows-Fehler zu vermeiden
           if [[ "${{ matrix.artifact_name }}" == "Linux" ]]; then
             pip install pygobject pycairo
           fi
@@ -77,7 +77,6 @@ jobs:
       - name: PyInstaller Build
         shell: bash
         run: |
-          # Logik exakt wie in deiner SpaceInvaders-Datei
           if [[ "${{ matrix.artifact_name }}" == "Mac_Intel" ]]; then
             arch -x86_64 python -m pip install --upgrade pip
             arch -x86_64 pip install pywebview pyinstaller --force-reinstall
@@ -89,7 +88,7 @@ jobs:
           elif [[ "${{ matrix.artifact_name }}" == "Windows" ]]; then
             pyinstaller --noconsole --name game --add-data "src;src" game_wrapper.py
           else
-            # Mac Silicon
+            # Mac Silicon / Default
             pyinstaller --noconsole --name game --add-data "src:src" game_wrapper.py
           fi
 
