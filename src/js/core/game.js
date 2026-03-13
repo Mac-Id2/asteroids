@@ -99,68 +99,25 @@ export class Game {
         requestAnimationFrame((t) => this.gameLoop(t));
     }
 
-    // --- HIGHSCORE SYSTEM (ANGEPASST & SICHER) ---
+    // --- HIGHSCORE SYSTEM (NEU: DIREKT AN PYTHON / JSON) ---
 
     saveHighScore(name, score, timeString) {
-        // 1. Schlüssel muss exakt gleich sein wie in HighscoreScene.js
-        const storageKey = 'asteroids_highscores'; 
-
         try {
-            // Liste laden (nutzt unsere sichere get-Funktion von unten)
-            let scores = this.getHighScoresList();
-
-            // Neuen Eintrag hinzufügen
-            scores.push({
-                name: name,
-                score: score,
-                time: timeString,
-                date: new Date().toLocaleDateString()
-            });
-
-            // Sortieren: Höchster Score zuerst
-            scores.sort((a, b) => b.score - a.score);
-
-            // Nur die Top 10 behalten
-            scores = scores.slice(0, 10);
-
-            // Speichern mit Fail-Safe für Linux
-            if (window.localStorage) {
-                localStorage.setItem(storageKey, JSON.stringify(scores));
+            // Wir rufen die Python GameAPI (in der build.yml) auf.
+            // Python übernimmt ab hier komplett das Sortieren und speichert es in die asteroids_highscores.json!
+            if (window.pywebview && window.pywebview.api) {
+                window.pywebview.api.save_highscore(name, score, timeString);
+            } else {
+                console.warn("Python API nicht gefunden - Spiele im reinen Browser-Modus?");
             }
-
         } catch (e) {
-            console.error("Fehler beim Speichern des Highscores (Speicher voll oder blockiert):", e);
-            // Hier stürzt das Spiel jetzt nicht mehr ab, es wird nur eine Warnung geloggt.
+            console.error("Fehler bei der Kommunikation mit Python:", e);
         }
     }
-
-    getHighScoresList() {
-        const storageKey = 'asteroids_highscores';
-        
-        try {
-            // Sicheres Laden für Linux
-            let raw = null;
-            if (window.localStorage) {
-                raw = localStorage.getItem(storageKey);
-            }
-            
-            // Wenn Daten da sind parsen, sonst leeres Array
-            const list = raw ? JSON.parse(raw) : [];
-            
-            // Sicherheitscheck: Ist es wirklich ein Array?
-            return Array.isArray(list) ? list : [];
-            
-        } catch (e) {
-            console.warn("Konnte Highscore-Liste nicht lesen, gebe leere Liste zurück.", e);
-            return [];
-        }
-    }
-
-    getHighScore() {
-        // Diese Funktion nutzt die sichere getHighScoresList von oben
-        let scores = this.getHighScoresList();
-        return scores.length > 0 ? scores[0].score : 0;
-    }
+    
+    // HINWEIS: Die alten Funktionen getHighScoresList() und getHighScore() wurden hier entfernt. 
+    // Sie werden in der game.js nicht mehr gebraucht, da die ui.js und highscoreScene.js
+    // die Liste jetzt selbstständig direkt von Python aus der JSON-Datei laden!
 }
 
 new Game();
