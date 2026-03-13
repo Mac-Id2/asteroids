@@ -48,7 +48,6 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install "setuptools<69.0.0" pywebview pyinstaller
-          # pygobject wird NUR auf Linux installiert
           if [[ "${{ runner.os }}" == "Linux" ]]; then
             pip install "PyGObject==3.48.2" pycairo
           fi
@@ -57,22 +56,29 @@ jobs:
         shell: bash
         run: |
           cat << 'EOF' > game_wrapper.py
-          import webview
           import os
           import sys
 
-          # --- FIX FÜR DEN LINUX BLACK SCREEN ---
+          # --- FIX: MUSS GANZ OBEN STEHEN! ---
+          # Bevor webview importiert wird, müssen wir das System "belügen"
           if sys.platform.startswith('linux') and getattr(sys, 'frozen', False):
-              # PyInstaller verbiegt den LD_LIBRARY_PATH. Wir holen das Original zurück,
-              # damit die Web-Engine (WebKit) nicht abstürzt.
+              # 1. Verhindert, dass der WebKit-Hintergrundprozess abstürzt
               orig_lp = os.environ.get('LD_LIBRARY_PATH_ORIG')
               if orig_lp is not None:
                   os.environ['LD_LIBRARY_PATH'] = orig_lp
               else:
                   os.environ.pop('LD_LIBRARY_PATH', None)
               
-              # Wayland-Fixes für Grafikfehler
+              # 2. Behebt den Black Screen (Wayland & Hardwarebeschleunigung aus)
+              os.environ['WEBKIT_DISABLE_COMPOSITING_MODE'] = '1'
               os.environ['WEBKIT_DISABLE_DMABUF_RENDERER'] = '1'
+              os.environ['GDK_BACKEND'] = 'x11'
+              
+              # 3. Unterdrückt die "canberra-gtk-module" Warnung
+              os.environ['GTK_MODULES'] = ''
+
+          # ERST JETZT darf webview geladen werden!
+          import webview
 
           class GameAPI:
               def quit_game(self):
