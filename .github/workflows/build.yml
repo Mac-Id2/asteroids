@@ -59,10 +59,10 @@ jobs:
           import os
           import sys
 
-          # Verhindert WebKitGTK-Crashes auf Ubuntu
+          # Zwingt Linux, das stabile X11-Backend zu nutzen (Behebt 99% der Wayland Black Screens)
           if sys.platform.startswith('linux'):
+              os.environ['GDK_BACKEND'] = 'x11'
               os.environ['WEBKIT_DISABLE_DMABUF_RENDERER'] = '1'
-              os.environ['WEBKIT_DISABLE_COMPOSITING_MODE'] = '1'
 
           import webview
 
@@ -78,9 +78,32 @@ jobs:
           html_file = os.path.join(base_path, 'src', 'index.html')
 
           api = GameAPI()
-          webview.create_window('Asteroids', html_file, fullscreen=True, js_api=api)
+          window = webview.create_window('Asteroids', html_file, fullscreen=True, js_api=api)
+
+          # --- DER RETTUNGSANKER (Wird von Python direkt ins Spiel geschossen) ---
+          def on_loaded():
+              window.evaluate_js('''
+                  // 1. Schreibt jeden unsichtbaren Fehler in fetter roter Schrift auf den Bildschirm
+                  window.addEventListener("error", function(e) {
+                      var div = document.createElement("div");
+                      div.style.cssText = "position:absolute; top:20px; left:20px; color:red; background:white; padding:15px; font-size:24px; z-index:9999; border:3px solid red;";
+                      div.innerHTML = "JS FEHLER: " + e.message + "<br>Datei: " + e.filename + ":" + e.lineno;
+                      document.body.appendChild(div);
+                  });
+                  
+                  // 2. Behebt den 0x0 Canvas Bug, indem er das Spiel zum Neuladen der Größe zwingt
+                  setInterval(function() {
+                      var cvs = document.getElementById("gameCanvas");
+                      if (cvs && (cvs.width === 0 || window.innerWidth !== cvs.width)) {
+                          window.dispatchEvent(new Event("resize"));
+                      }
+                  }, 500);
+              ''')
+
+          # Event-Listener anbinden
+          window.events.loaded += on_loaded
           
-          # Lokaler Server umgeht die CORS-Blockade von JS-Modulen auf Linux
+          # Lokaler Server an, um CORS-Blockaden zu verhindern
           webview.start(http_server=True)
           EOF
 
@@ -92,13 +115,11 @@ jobs:
             arch -x86_64 pip install "setuptools<69.0.0" pywebview pyinstaller bottle --force-reinstall
             arch -x86_64 pyinstaller --noconsole --name game --add-data "src:src" game_wrapper.py
           elif [[ "${{ matrix.artifact_name }}" == "Linux" ]]; then
-            # Sauberer Build für Linux ohne System-Bibliotheken zu zerstören
             pyinstaller --noconsole --name game --hidden-import gi --hidden-import bottle --add-data "src:src" game_wrapper.py
             chmod +x dist/game/game || true
           elif [[ "${{ matrix.artifact_name }}" == "Windows" ]]; then
             pyinstaller --noconsole --name game --add-data "src;src" game_wrapper.py
           else
-            # Mac Silicon
             pyinstaller --noconsole --name game --add-data "src:src" game_wrapper.py
           fi
 
