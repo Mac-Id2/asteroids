@@ -34,7 +34,8 @@ jobs:
         with:
           python-version: '3.10'
 
-      - name: Install Build Dependencies (Linux)
+      # DIESER SCHRITT IST NEU: Er löst den Build-Fehler auf dem Server
+      - name: Install Build Dependencies (Linux Only)
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
@@ -71,6 +72,7 @@ jobs:
           if [ "${{ runner.os }}" = "Windows" ]; then
             pyinstaller --noconsole --name game --add-data "src;src" game_wrapper.py
           else
+            # --collect-all gi zwingt PyInstaller, die Grafik-Bindungen einzupacken
             pyinstaller --noconsole --name game --collect-all gi --collect-all webview --add-data "src:src" game_wrapper.py
           fi
 
