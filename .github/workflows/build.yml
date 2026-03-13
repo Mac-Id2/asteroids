@@ -47,7 +47,7 @@ jobs:
         shell: bash
         run: |
           python -m pip install --upgrade pip
-          pip install "setuptools<69.0.0" pywebview pyinstaller
+          pip install "setuptools<69.0.0" pywebview pyinstaller bottle
           if [[ "${{ runner.os }}" == "Linux" ]]; then
             pip install "PyGObject==3.48.2" pycairo
           fi
@@ -58,47 +58,31 @@ jobs:
           cat << 'EOF' > game_wrapper.py
           import os
           import sys
-          import traceback
 
-          # --- 1. FIX: LD_LIBRARY_PATH RETTEN (GEGEN UNHANDLED EXCEPTION) ---
-          if sys.platform.startswith('linux') and getattr(sys, 'frozen', False):
-              orig_lp = os.environ.get('LD_LIBRARY_PATH_ORIG')
-              if orig_lp is not None:
-                  os.environ['LD_LIBRARY_PATH'] = orig_lp
-              else:
-                  os.environ.pop('LD_LIBRARY_PATH', None)
-                  
-          # --- 2. FIX: WAYLAND BLACK SCREEN VERHINDERN ---
           if sys.platform.startswith('linux'):
               os.environ['WEBKIT_DISABLE_COMPOSITING_MODE'] = '1'
-              os.environ['WEBKIT_DISABLE_DMABUF_RENDERER'] = '1'
 
-          try:
-              import webview
+          import webview
 
-              class GameAPI:
-                  def quit_game(self):
-                      os._exit(0)
+          class GameAPI:
+              def quit_game(self):
+                  os._exit(0)
 
-              if hasattr(sys, '_MEIPASS'):
-                  base_path = sys._MEIPASS
-              else:
-                  base_path = os.path.abspath(".")
+          if hasattr(sys, '_MEIPASS'):
+              base_path = sys._MEIPASS
+          else:
+              base_path = os.path.abspath(".")
 
-              html_file = os.path.join(base_path, 'src', 'index.html')
-              if not os.path.exists(html_file):
-                  html_file = os.path.join(base_path, 'index.html')
+          html_file = os.path.join(base_path, 'src', 'index.html')
+          if not os.path.exists(html_file):
+              html_file = os.path.join(base_path, 'index.html')
 
-              api = GameAPI()
-              webview.create_window('Asteroids', html_file, fullscreen=True, js_api=api)
-              webview.start()
-              
-          except Exception as e:
-              # --- 3. CRASH LOGGER ---
-              # Wenn es abstürzt, schreiben wir den exakten Fehler in eine Textdatei!
-              with open("asteroids_error_log.txt", "w") as f:
-                  f.write(traceback.format_exc())
-              raise
+          api = GameAPI()
+          webview.create_window('Asteroids', html_file, fullscreen=True, js_api=api)
+          
+          # HIER IST DER FIX FÜR DEN BLACK SCREEN:
+          # Startet einen lokalen HTTP-Server, damit Linux das JS-Modul nicht blockiert!
+          webview.start(http_server=True)
           EOF
 
       - name: PyInstaller Build
@@ -109,8 +93,8 @@ jobs:
             arch -x86_64 pip install "setuptools<69.0.0" pywebview pyinstaller --force-reinstall
             arch -x86_64 pyinstaller --noconsole --name game --add-data "src:src" game_wrapper.py
           elif [[ "${{ matrix.artifact_name }}" == "Linux" ]]; then
-            # Implizite GTK Imports für Linux sicherstellen
-            pyinstaller --noconsole --name game --hidden-import gi --hidden-import gi.repository.Gtk --hidden-import gi.repository.WebKit2 --add-data "src:src" game_wrapper.py
+            # Hinzugefügt: --hidden-import bottle (wird für http_server=True benötigt)
+            pyinstaller --noconsole --name game --hidden-import gi --hidden-import bottle --add-data "src:src" game_wrapper.py
             chmod +x dist/game/game || true
           elif [[ "${{ matrix.artifact_name }}" == "Windows" ]]; then
             pyinstaller --noconsole --name game --add-data "src;src" game_wrapper.py
