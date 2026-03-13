@@ -58,17 +58,57 @@ jobs:
           cat << 'EOF' > game_wrapper.py
           import os
           import sys
+          import json
+          from datetime import datetime
 
-          # Zwingt Linux, das stabile X11-Backend zu nutzen (Behebt 99% der Wayland Black Screens)
           if sys.platform.startswith('linux'):
               os.environ['GDK_BACKEND'] = 'x11'
               os.environ['WEBKIT_DISABLE_DMABUF_RENDERER'] = '1'
 
           import webview
 
+          # Berechnet den perfekten Pfad für die JSON-Datei (neben der Ausführungsdatei)
+          def get_scores_path():
+              if getattr(sys, 'frozen', False):
+                  if sys.platform == 'darwin':
+                      # Auf dem Mac legen wir es neben die .app Datei
+                      base = os.path.abspath(os.path.join(os.path.dirname(sys.executable), '../../..'))
+                  else:
+                      base = os.path.dirname(sys.executable)
+              else:
+                  base = os.path.abspath(".")
+              return os.path.join(base, "asteroids_highscores.json")
+
           class GameAPI:
               def quit_game(self):
                   os._exit(0)
+                  
+              def get_highscores(self):
+                  path = get_scores_path()
+                  if os.path.exists(path):
+                      try:
+                          with open(path, 'r') as f:
+                              return json.load(f)
+                      except:
+                          pass
+                  return []
+                  
+              def save_highscore(self, name, score, time_str):
+                  path = get_scores_path()
+                  scores = self.get_highscores()
+                  scores.append({
+                      "name": name,
+                      "score": score,
+                      "time": time_str,
+                      "date": datetime.now().strftime("%d.%m.%Y")
+                  })
+                  # Python übernimmt das Sortieren: Höchster Score zuerst, nur Top 10
+                  scores = sorted(scores, key=lambda x: int(x.get("score", 0)), reverse=True)[:10]
+                  try:
+                      with open(path, 'w') as f:
+                          json.dump(scores, f)
+                  except Exception as e:
+                      print("Fehler beim Speichern:", e)
 
           if hasattr(sys, '_MEIPASS'):
               base_path = sys._MEIPASS
@@ -80,18 +120,14 @@ jobs:
           api = GameAPI()
           window = webview.create_window('Asteroids', html_file, fullscreen=True, js_api=api)
 
-          # --- DER RETTUNGSANKER (Wird von Python direkt ins Spiel geschossen) ---
           def on_loaded():
               window.evaluate_js('''
-                  // 1. Schreibt jeden unsichtbaren Fehler in fetter roter Schrift auf den Bildschirm
                   window.addEventListener("error", function(e) {
                       var div = document.createElement("div");
                       div.style.cssText = "position:absolute; top:20px; left:20px; color:red; background:white; padding:15px; font-size:24px; z-index:9999; border:3px solid red;";
                       div.innerHTML = "JS FEHLER: " + e.message + "<br>Datei: " + e.filename + ":" + e.lineno;
                       document.body.appendChild(div);
                   });
-                  
-                  // 2. Behebt den 0x0 Canvas Bug, indem er das Spiel zum Neuladen der Größe zwingt
                   setInterval(function() {
                       var cvs = document.getElementById("gameCanvas");
                       if (cvs && (cvs.width === 0 || window.innerWidth !== cvs.width)) {
@@ -100,10 +136,7 @@ jobs:
                   }, 500);
               ''')
 
-          # Event-Listener anbinden
           window.events.loaded += on_loaded
-          
-          # Lokaler Server an, um CORS-Blockaden zu verhindern
           webview.start(http_server=True)
           EOF
 
