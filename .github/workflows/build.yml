@@ -17,13 +17,13 @@ jobs:
       matrix:
         include:
           - os: windows-latest
-            artifact_name: windows-x64
-          - os: ubuntu-22.04
-            artifact_name: linux-x64
+            artifact_name: Windows
           - os: macos-latest
-            artifact_name: macos-arm64
-          - os: macos-13  # Zurück auf macos-13 für Intel
-            artifact_name: macos-amd64
+            artifact_name: Mac_Silicon
+          - os: macos-latest
+            artifact_name: Mac_Intel
+          - os: ubuntu-latest
+            artifact_name: Linux
 
     steps:
       - name: Code auschecken
@@ -34,20 +34,20 @@ jobs:
         with:
           python-version: '3.10'
 
+      # DIESER SCHRITT IST NUR FÜR LINUX: Installiert die Header für pygobject
       - name: Install Build Dependencies (Linux Only)
-        if: runner.os == 'Linux'
+        if: matrix.artifact_name == 'Linux'
         run: |
           sudo apt-get update
-          # NEU: pkg-config und libglib2.0-dev hinzugefügt, damit girepository gefunden wird
-          sudo apt-get install -y pkg-config libglib2.0-dev libgirepository1.0-dev build-essential libgtk-3-dev libwebkit2gtk-4.0-dev python3-dev libcairo2-dev
+          sudo apt-get install -y libgirepository1.0-dev build-essential libgtk-3-dev libwebkit2gtk-4.0-dev python3-dev libcairo2-dev pkg-config
 
       - name: Abhängigkeiten installieren
         shell: bash
         run: |
           python -m pip install --upgrade pip
           pip install pywebview pyinstaller
-          # NEU: pygobject wird NUR auf Linux installiert
-          if [ "${{ runner.os }}" = "Linux" ]; then
+          # pygobject wird nur auf Linux installiert
+          if [[ "${{ matrix.artifact_name }}" == "Linux" ]]; then
             pip install pygobject pycairo
           fi
 
@@ -74,44 +74,38 @@ jobs:
       - name: PyInstaller Build
         shell: bash
         run: |
-          if [ "${{ runner.os }}" = "Windows" ]; then
+          # Struktur orientiert an deiner SpaceInvaders-Datei
+          if [[ "${{ matrix.artifact_name }}" == "Mac_Intel" ]]; then
+            arch -x86_64 python -m pip install --upgrade pip
+            arch -x86_64 pip install pywebview pyinstaller --force-reinstall
+            arch -x86_64 pyinstaller --noconsole --name game --add-data "src:src" game_wrapper.py
+          elif [[ "${{ matrix.artifact_name }}" == "Linux" ]]; then
+            # Spezielle Flags für Linux, damit 'gi' eingepackt wird
+            pyinstaller --noconsole --name game --collect-all gi --collect-all webview --add-data "src:src" game_wrapper.py
+            chmod +x dist/game/game
+          elif [[ "${{ matrix.artifact_name }}" == "Windows" ]]; then
             pyinstaller --noconsole --name game --add-data "src;src" game_wrapper.py
           else
-            # collect-all zwingt PyInstaller, die Grafik-Bindungen einzupacken
-            pyinstaller --noconsole --name game --collect-all gi --collect-all webview --add-data "src:src" game_wrapper.py
+            # Mac Silicon
+            pyinstaller --noconsole --name game --add-data "src:src" game_wrapper.py
           fi
 
       - name: Archivieren
         shell: bash
         run: |
-          if [ "${{ runner.os }}" = "Linux" ] || [ "${{ runner.os }}" = "macOS" ]; then
-            cd dist/game && zip -r "../../Game-${{ matrix.artifact_name }}.zip" .
-          else
-            python -c "import shutil; shutil.make_archive('Game-${{ matrix.artifact_name }}', 'zip', 'dist/game')"
-          fi
+          # Name angepasst an deine Struktur
+          python -c "import shutil; shutil.make_archive('Asteroids-${{ matrix.artifact_name }}', 'zip', 'dist/game')"
 
-      - name: Artifact hochladen
+      - name: Test-Artifact hochladen
         uses: actions/upload-artifact@v4
         with:
-          name: Game-${{ matrix.artifact_name }}
-          path: Game-${{ matrix.artifact_name }}.zip
-          retention-days: 7
+          name: Asteroids-${{ matrix.artifact_name }}
+          path: Asteroids-${{ matrix.artifact_name }}.zip
 
-  release:
-    name: GitHub Release erstellen
-    runs-on: ubuntu-latest
-    needs: build
-    if: startsWith(github.ref, 'refs/tags/')
-    permissions:
-      contents: write
-    steps:
-      - name: Alle Artifacts herunterladen
-        uses: actions/upload-artifact@v4
-        with:
-          path: artifacts/
-      - name: Release erstellen und Assets hochladen
+      - name: Release erstellen
+        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: artifacts/**/*.zip
+          files: Asteroids-${{ matrix.artifact_name }}.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
