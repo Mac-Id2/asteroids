@@ -48,7 +48,6 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install "setuptools<69.0.0" pywebview pyinstaller bottle
-          # Zurück zur schlanken GTK-Brücke (kein riesiges QT mehr!)
           if [[ "${{ matrix.artifact_name }}" == "Linux" ]]; then
             pip install "PyGObject==3.48.2" pycairo
           fi
@@ -60,12 +59,16 @@ jobs:
           import os
           import sys
 
-          # NUR die Rendering-Fixes für den Black Screen unter Linux.
-          # KEINE Manipulationen mehr am LD_LIBRARY_PATH!
+          # --- DER LINUX BLACK-SCREEN FIX ---
           if sys.platform.startswith('linux'):
+              # 1. Behebt Grafik-Glitches unter Wayland
               os.environ['WEBKIT_DISABLE_DMABUF_RENDERER'] = '1'
               os.environ['WEBKIT_DISABLE_COMPOSITING_MODE'] = '1'
               os.environ['GTK_MODULES'] = ''
+              
+              # 2. DER APPARMOR FIX FÜR UBUNTU 24.04:
+              # Verhindert, dass Ubuntu den Rendering-Prozess im PyInstaller-Temp-Ordner killt!
+              os.environ['WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS'] = '1'
 
           import webview
 
@@ -85,7 +88,7 @@ jobs:
           api = GameAPI()
           webview.create_window('Asteroids', html_file, fullscreen=True, js_api=api)
           
-          # http_server=True umgeht die Linux-CORS-Sperre für dein ES6-Module-Script!
+          # Server an, Sandbox aus = Spiel läuft.
           webview.start(http_server=True)
           EOF
 
@@ -97,7 +100,6 @@ jobs:
             arch -x86_64 pip install "setuptools<69.0.0" pywebview pyinstaller bottle --force-reinstall
             arch -x86_64 pyinstaller --noconsole --name game --add-data "src:src" game_wrapper.py
           elif [[ "${{ matrix.artifact_name }}" == "Linux" ]]; then
-            # Richtiges Einpacken: collect-all stellt sicher, dass _gi.so nicht fehlt!
             pyinstaller --noconsole --name game \
               --collect-all gi \
               --collect-all webview \
@@ -107,7 +109,6 @@ jobs:
           elif [[ "${{ matrix.artifact_name }}" == "Windows" ]]; then
             pyinstaller --noconsole --name game --add-data "src;src" game_wrapper.py
           else
-            # Mac Silicon
             pyinstaller --noconsole --name game --add-data "src:src" game_wrapper.py
           fi
 
