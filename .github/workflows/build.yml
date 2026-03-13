@@ -52,23 +52,42 @@ jobs:
             pip install "PyGObject==3.48.2" pycairo
           fi
 
+      # NEU: Wir injizieren einen Lebensretter in dein HTML, der den 0x0 Bug heilt 
+      # und JS-Fehler sichtbar auf den Canvas schreibt!
+      - name: Inject Linux JS Fixes
+        shell: bash
+        run: |
+          cat << 'EOF' > src/linux_fix.js
+          // 1. Schreibt JS-Fehler riesig auf den Bildschirm
+          window.addEventListener('error', function(e) {
+              var div = document.createElement('div');
+              div.style.cssText = 'position:absolute; top:20px; left:20px; color:red; background:white; padding:10px; font-size:24px; z-index:9999; border:2px solid red;';
+              div.innerHTML = 'JS FEHLER: ' + e.message + '<br>Datei: ' + e.filename + '<br>Zeile: ' + e.lineno;
+              document.body.appendChild(div);
+          });
+          // 2. Heilt den 0x0 Wayland Fullscreen-Bug
+          setInterval(function() {
+              var cvs = document.getElementById('gameCanvas');
+              if (cvs && (cvs.width === 0 || window.innerWidth !== cvs.width)) {
+                  window.dispatchEvent(new Event('resize'));
+              }
+          }, 500);
+          EOF
+          sed -i 's|<head>|<head><script src="./linux_fix.js"></script>|g' src/index.html
+
       - name: Wrapper-Skript automatisch erstellen
         shell: bash
         run: |
           cat << 'EOF' > game_wrapper.py
           import os
           import sys
+          import mimetypes
 
-          # --- DER LINUX BLACK-SCREEN FIX ---
+          # WICHTIG: Sagt dem internen Server, dass JS auch wirklich JS ist (behebt MIME-Type Blocker)
+          mimetypes.add_type('application/javascript', '.js')
+
           if sys.platform.startswith('linux'):
-              # 1. Behebt Grafik-Glitches unter Wayland
               os.environ['WEBKIT_DISABLE_DMABUF_RENDERER'] = '1'
-              os.environ['WEBKIT_DISABLE_COMPOSITING_MODE'] = '1'
-              os.environ['GTK_MODULES'] = ''
-              
-              # 2. DER APPARMOR FIX FÜR UBUNTU 24.04:
-              # Verhindert, dass Ubuntu den Rendering-Prozess im PyInstaller-Temp-Ordner killt!
-              os.environ['WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS'] = '1'
 
           import webview
 
@@ -82,13 +101,10 @@ jobs:
               base_path = os.path.abspath(".")
 
           html_file = os.path.join(base_path, 'src', 'index.html')
-          if not os.path.exists(html_file):
-              html_file = os.path.join(base_path, 'index.html')
 
           api = GameAPI()
           webview.create_window('Asteroids', html_file, fullscreen=True, js_api=api)
           
-          # Server an, Sandbox aus = Spiel läuft.
           webview.start(http_server=True)
           EOF
 
@@ -100,9 +116,9 @@ jobs:
             arch -x86_64 pip install "setuptools<69.0.0" pywebview pyinstaller bottle --force-reinstall
             arch -x86_64 pyinstaller --noconsole --name game --add-data "src:src" game_wrapper.py
           elif [[ "${{ matrix.artifact_name }}" == "Linux" ]]; then
+            # Sauber verpackt mit ~12MB!
             pyinstaller --noconsole --name game \
-              --collect-all gi \
-              --collect-all webview \
+              --hidden-import gi \
               --hidden-import bottle \
               --add-data "src:src" game_wrapper.py
             chmod +x dist/game/game || true
