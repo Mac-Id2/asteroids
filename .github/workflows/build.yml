@@ -1,17 +1,20 @@
-name: Build Web Game
+name: Build-Web-Game-Release
 
 on:
-  workflow_dispatch:
   push:
+    branches:
+      - main
     tags:
       - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
 
 jobs:
   build:
     name: Build auf ${{ matrix.artifact_name }}
     runs-on: ${{ matrix.os }}
-    permissions:
-      contents: read
     strategy:
       fail-fast: false
       matrix:
@@ -34,19 +37,19 @@ jobs:
         with:
           python-version: '3.10'
 
-      # DIESER SCHRITT IST NUR FÜR LINUX: Installiert die Header für pygobject
+      # Fix für Linux: Installiert die Header für Ubuntu 24.04 (Noble)
       - name: Install Build Dependencies (Linux Only)
         if: matrix.artifact_name == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y libgirepository1.0-dev build-essential libgtk-3-dev libwebkit2gtk-4.0-dev python3-dev libcairo2-dev pkg-config
+          sudo apt-get install -y libgirepository1.0-dev build-essential libgtk-3-dev libwebkit2gtk-4.1-dev python3-dev libcairo2-dev pkg-config
 
       - name: Abhängigkeiten installieren
         shell: bash
         run: |
           python -m pip install --upgrade pip
           pip install pywebview pyinstaller
-          # pygobject wird nur auf Linux installiert
+          # pygobject NUR auf Linux installieren, um Windows-Absturz zu verhindern
           if [[ "${{ matrix.artifact_name }}" == "Linux" ]]; then
             pip install pygobject pycairo
           fi
@@ -74,13 +77,13 @@ jobs:
       - name: PyInstaller Build
         shell: bash
         run: |
-          # Struktur orientiert an deiner SpaceInvaders-Datei
+          # Logik exakt wie in deiner SpaceInvaders-Datei
           if [[ "${{ matrix.artifact_name }}" == "Mac_Intel" ]]; then
             arch -x86_64 python -m pip install --upgrade pip
             arch -x86_64 pip install pywebview pyinstaller --force-reinstall
             arch -x86_64 pyinstaller --noconsole --name game --add-data "src:src" game_wrapper.py
           elif [[ "${{ matrix.artifact_name }}" == "Linux" ]]; then
-            # Spezielle Flags für Linux, damit 'gi' eingepackt wird
+            # Spezielle Flags für Linux (collect-all)
             pyinstaller --noconsole --name game --collect-all gi --collect-all webview --add-data "src:src" game_wrapper.py
             chmod +x dist/game/game
           elif [[ "${{ matrix.artifact_name }}" == "Windows" ]]; then
@@ -90,11 +93,9 @@ jobs:
             pyinstaller --noconsole --name game --add-data "src:src" game_wrapper.py
           fi
 
-      - name: Archivieren
+      - name: Archivieren (ZIP erstellen)
         shell: bash
-        run: |
-          # Name angepasst an deine Struktur
-          python -c "import shutil; shutil.make_archive('Asteroids-${{ matrix.artifact_name }}', 'zip', 'dist/game')"
+        run: python -c "import shutil; shutil.make_archive('Asteroids-${{ matrix.artifact_name }}', 'zip', 'dist/game')"
 
       - name: Test-Artifact hochladen
         uses: actions/upload-artifact@v4
