@@ -4,39 +4,22 @@ import { MenuScene } from './menuScene.js';
 export class HighscoreScene extends Scene {
     constructor(game) {
         super(game);
+        this.highscores = [];
 
-        const storageKey = 'asteroids_highscores';
-        
-        try {
-            // --- FIX: Sicherer Zugriff ---
-            let rawData = null;
-            if (window.localStorage) {
-                rawData = localStorage.getItem(storageKey);
+        // Läd die komplette JSON von Python
+        const loadScores = () => {
+            if (window.pywebview && window.pywebview.api) {
+                // 100ms warten, damit das Speichern der vorherigen Szene sicher abgeschlossen ist
+                setTimeout(() => {
+                    window.pywebview.api.get_highscores().then(scores => {
+                        this.highscores = scores || [];
+                    });
+                }, 100);
             }
-            
-            if (rawData) {
-                this.highscores = JSON.parse(rawData);
-            } else {
-                this.highscores = [];
-            }
+        };
 
-            if (!Array.isArray(this.highscores)) {
-                throw new Error("Daten sind kein Array");
-            }
-
-        } catch (e) {
-            console.warn("Highscore-Daten fehlerhaft. Reset durchgeführt.", e);
-            this.highscores = []; 
-            // --- FIX: Sicherer Zugriff ---
-            try {
-                if (window.localStorage) {
-                    localStorage.setItem(storageKey, JSON.stringify([])); 
-                }
-            } catch(err) {}
-        }
-
-        this.highscores.sort((a, b) => b.score - a.score);
-        this.highscores = this.highscores.slice(0, 5);
+        if (window.pywebview) loadScores();
+        else window.addEventListener('pywebviewready', loadScores);
 
         this.keydownHandler = (e) => this.handleKeyDown(e);
         window.addEventListener('keydown', this.keydownHandler);
@@ -62,13 +45,11 @@ export class HighscoreScene extends Scene {
         ctx.fillText("RANK   NAME        SCORE    TIME", cx, 140);
         ctx.fillRect(cx - 250, 150, 500, 2);
 
-        const scores = this.highscores; 
-
         ctx.fillStyle = "white";
         ctx.font = "20px monospace"; 
 
-        for (let i = 0; i < scores.length; i++) {
-            const s = scores[i];
+        for (let i = 0; i < this.highscores.length; i++) {
+            const s = this.highscores[i];
             const y = 180 + (i * 35); 
             
             const rank = (i + 1).toString().padStart(2, ' ');
@@ -79,6 +60,11 @@ export class HighscoreScene extends Scene {
             const timeVal = s.time || "00:00";
 
             ctx.fillText(`${rank}.   ${name}  ${scoreVal}   ${timeVal}`, cx, y);
+        }
+
+        if (this.highscores.length === 0) {
+            ctx.fillStyle = "gray";
+            ctx.fillText("Loading Scores...", cx, 200);
         }
 
         ctx.fillStyle = "yellow";
