@@ -149,11 +149,21 @@ jobs:
             arch -x86_64 pyinstaller --noconsole --name game --add-data "src:src" game_wrapper.py
           elif [[ "${{ matrix.artifact_name }}" == "Linux" ]]; then
             pyinstaller --noconsole --name game --hidden-import gi --hidden-import bottle --add-data "src:src" game_wrapper.py
-            chmod +x dist/game/game || true
           elif [[ "${{ matrix.artifact_name }}" == "Windows" ]]; then
             pyinstaller --noconsole --name game --add-data "src;src" game_wrapper.py
           else
             pyinstaller --noconsole --name game --add-data "src:src" game_wrapper.py
+          fi
+          
+          # --- NEU: Endungen entfernen ---
+          # Auf Windows generiert PyInstaller eine .exe. Wir benennen sie um.
+          if [[ "${{ matrix.artifact_name }}" == "Windows" ]]; then
+            mv dist/game/game.exe dist/game/game || true
+          fi
+          
+          # Ausführungsrechte für alle Unix-basierten Systeme (Linux & Mac) sichern
+          if [[ "${{ matrix.os }}" != "windows-latest" ]]; then
+            chmod +x dist/game/game || true
           fi
 
       - name: Archivieren (ZIP erstellen)
