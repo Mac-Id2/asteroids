@@ -67,11 +67,9 @@ jobs:
 
           import webview
 
-          # Berechnet den perfekten Pfad für die JSON-Datei (neben der Ausführungsdatei)
           def get_scores_path():
               if getattr(sys, 'frozen', False):
                   if sys.platform == 'darwin':
-                      # Auf dem Mac legen wir es neben die .app Datei
                       base = os.path.abspath(os.path.join(os.path.dirname(sys.executable), '../../..'))
                   else:
                       base = os.path.dirname(sys.executable)
@@ -102,7 +100,6 @@ jobs:
                       "time": time_str,
                       "date": datetime.now().strftime("%d.%m.%Y")
                   })
-                  # Python übernimmt das Sortieren: Höchster Score zuerst, nur Top 10
                   scores = sorted(scores, key=lambda x: int(x.get("score", 0)), reverse=True)[:10]
                   try:
                       with open(path, 'w') as f:
@@ -155,13 +152,7 @@ jobs:
             pyinstaller --noconsole --name game --add-data "src:src" game_wrapper.py
           fi
           
-          # --- NEU: Endungen entfernen ---
-          # Auf Windows generiert PyInstaller eine .exe. Wir benennen sie um.
-          if [[ "${{ matrix.artifact_name }}" == "Windows" ]]; then
-            mv dist/game/game.exe dist/game/game || true
-          fi
-          
-          # Ausführungsrechte für alle Unix-basierten Systeme (Linux & Mac) sichern
+          # Ausführungsrechte für Unix-Systeme (Linux & Mac)
           if [[ "${{ matrix.os }}" != "windows-latest" ]]; then
             chmod +x dist/game/game || true
           fi
@@ -175,6 +166,7 @@ jobs:
         with:
           name: Asteroids-${{ matrix.artifact_name }}
           path: Asteroids-${{ matrix.artifact_name }}.zip
+          retention-days: 7
 
   release:
     name: GitHub Release erstellen
@@ -188,6 +180,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           path: artifacts/
+
       - name: Release erstellen und Assets hochladen
         uses: softprops/action-gh-release@v2
         with:
