@@ -1,12 +1,15 @@
 // 1. IMPORTS: Wichtig, damit JS weiß, wo die anderen Dateien liegen
 import { GameUI } from '../manager/ui.js';
 import { MenuScene } from '../scenes/menuScene.js';
+import { LedManager } from '../manager/ledManager.js';
 
 export class Game {
     constructor() {
         // Zuerst Canvas holen, sonst knallt es beim Resize
         this.canvas = document.getElementById('gameCanvas');
         this.canvasContext = this.canvas.getContext('2d');
+
+        this.leds = new LedManager("ws://localhost:8765");
 
         // RESIZE SETUP
         window.addEventListener('resize', () => this.resize());
@@ -25,6 +28,7 @@ export class Game {
                 
                 // Fallback: Normales Schließen immer zusätzlich aufrufen
                 window.close(); 
+    
             }
             // ----------------------------------------
 
@@ -98,7 +102,10 @@ export class Game {
 
         requestAnimationFrame((t) => this.gameLoop(t));
     }
-
+    triggerFlash(color = {r: 255, g: 255, b: 255}) {
+        // Blitzt kurz die gesamte Kette A auf
+        this.leds.sendEffect("A", "blink", 99, color.r, color.g, color.b, 20, 1);
+    }
     // --- HIGHSCORE SYSTEM (NEU: DIREKT AN PYTHON / JSON) ---
 
     saveHighScore(name, score, timeString) {
