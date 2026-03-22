@@ -3,8 +3,9 @@ import { Laser } from '../GameObjects/bullet.js';
 import { WEAPON_CONFIG } from '../config/weaponConfig.js';
 
 export class BulletManager {
-    constructor(objectList) {
-        this.objectList = objectList; 
+    constructor(objectList, sound) {
+        this.objectList = objectList;
+        this.sound = sound;
         this.lastShotTime = 0;
     }
 
@@ -42,6 +43,7 @@ export class BulletManager {
                 this.objectList.add(newLaser);
             }
 
+            this.sound?.play('fire');
             this.lastShotTime = now;
         }
     }
