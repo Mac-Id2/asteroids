@@ -1,6 +1,7 @@
 // 1. IMPORTS: Wichtig, damit JS weiß, wo die anderen Dateien liegen
 import { GameUI } from '../manager/ui.js';
 import { MenuScene } from '../scenes/menuScene.js';
+import { SoundManager } from './soundManager.js';
 
 export class Game {
     constructor() {
@@ -37,6 +38,9 @@ export class Game {
 
         // Jetzt UI mit den korrekten Maßen erstellen
         this.ui = new GameUI(this.canvas.width, this.canvas.height);
+
+        // Sound
+        this.sound = new SoundManager();
 
         // Globale Variablen
         this.playerName = "Spieler";

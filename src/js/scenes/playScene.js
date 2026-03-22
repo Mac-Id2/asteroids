@@ -31,7 +31,7 @@ export class PlayScene extends Scene {
         }
 
         // Manager
-        this.bulletManager = new BulletManager(this.objects);
+        this.bulletManager = new BulletManager(this.objects, this.game.sound);
         this.astroidManager = new AstroidManager(this.game.canvas.width, this.game.canvas.height, this.objects, this);
 
         // Ship
@@ -67,6 +67,8 @@ export class PlayScene extends Scene {
         }
 
         if (this.ship.health <= 0) {
+            this.game.sound?.stopLoop('thrust');
+            this.game.sound?.play('gameover');
             this.game.changeScene(
                 new GameOverScene(
                     this.game,
@@ -87,8 +89,13 @@ export class PlayScene extends Scene {
     }
 
     handlePlayerInput(deltaTime) {
-        if (this.input.isDown('ArrowUp')) this.ship.accelerate(true, deltaTime);
-        else this.ship.accelerate(false, deltaTime);
+        if (this.input.isDown('ArrowUp')) {
+            this.ship.accelerate(true, deltaTime);
+            this.game.sound?.playLoop('thrust');
+        } else {
+            this.ship.accelerate(false, deltaTime);
+            this.game.sound?.stopLoop('thrust');
+        }
 
         if (this.input.isDown('ArrowLeft')) this.ship.rotate(1, deltaTime);
         if (this.input.isDown('ArrowRight')) this.ship.rotate(-1, deltaTime);
@@ -105,6 +112,10 @@ export class PlayScene extends Scene {
         // } else {
         //     this.cKeyPressed = false;
         // }
+    }
+
+    onDestroy() {
+        this.game.sound?.stopLoop('thrust');
     }
 
     draw(ctx) {
