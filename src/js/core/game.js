@@ -1,6 +1,7 @@
 import { GameUI } from '../manager/ui.js';
 import { MenuScene } from '../scenes/menuScene.js';
 import { SoundManager } from './soundManager.js';
+import { LedManager } from './ledManager.js';
 
 export class Game {
     constructor() {
@@ -44,6 +45,9 @@ export class Game {
 
         // Sound
         this.sound = new SoundManager();
+
+        // LED
+        this.led = new LedManager();
 
         // Globale Variablen
         this.playerName = "Spieler";

@@ -55,6 +55,8 @@ export class PlayScene extends Scene {
             this.game.canvas.width,
             this.game.canvas.height
         );
+
+        this.game.led?.onGameStart();
     }
 
     update(deltaTime) {
@@ -69,6 +71,7 @@ export class PlayScene extends Scene {
         if (this.ship.health <= 0) {
             this.game.sound?.stopLoop('thrust');
             this.game.sound?.play('gameover');
+            this.game.led?.onGameOver();
             this.game.changeScene(
                 new GameOverScene(
                     this.game,

@@ -84,6 +84,7 @@ export class CollisionSystem {
 
         this.game.ui?.takeDamage(33);
         this.game.sound?.play('damage');
+        this.game.led?.onShipDamaged();
 
         asteroid.isDestroyed = true;
     }
@@ -96,6 +97,7 @@ export class CollisionSystem {
 
         const bangMap = { 3: 'bangLarge', 2: 'bangMedium', 1: 'bangSmall' };
         this.game.sound?.play(bangMap[asteroid.size] ?? 'bangSmall');
+        this.game.led?.onAsteroidDestroyed(asteroid.size);
 
         // 🎁 PowerUp (keine Dopplung)
         if (Math.random() < 0.10) {
