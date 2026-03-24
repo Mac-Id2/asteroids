@@ -1,4 +1,3 @@
-// 1. IMPORTS: Wichtig, damit JS weiß, wo die anderen Dateien liegen
 import { GameUI } from '../manager/ui.js';
 import { MenuScene } from '../scenes/menuScene.js';
 import { SoundManager } from './soundManager.js';
@@ -9,9 +8,13 @@ export class Game {
         this.canvas = document.getElementById('gameCanvas');
         this.canvasContext = this.canvas.getContext('2d');
 
+        this.lastInputTime = Date.now();
+        this.AFK_TIMEOUT_MS = 180000;
+
         // RESIZE SETUP
         window.addEventListener('resize', () => this.resize());
         window.addEventListener('keydown', (e) => {
+            this.lastInputTime = Date.now();
             
             // --- NEU: Sicherere Abfrage für Q und Escape ---
             if (e.key === 'q' || e.key === 'Q' || e.key === 'Escape') {
@@ -51,6 +54,7 @@ export class Game {
 
         // Input Listener
         this.canvas.addEventListener('mousedown', (e) => {
+            this.lastInputTime = Date.now();
             if (this.currentScene) this.currentScene.handleInput(e);
         });
 
@@ -81,6 +85,36 @@ export class Game {
 
     gameLoop(timeStamp) {
         if (!timeStamp) timeStamp = performance.now();
+
+        const now = Date.now();
+        const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+        for (let i = 0; i < gamepads.length; i++) {
+            const gp = gamepads[i];
+            if (gp) {
+                for (let j = 0; j < gp.buttons.length; j++) {
+                    if (gp.buttons[j].pressed) {
+                        this.lastInputTime = now;
+                    }
+                }
+                for (let j = 0; j < gp.axes.length; j++) {
+                    if (Math.abs(gp.axes[j]) > 0.1) {
+                        this.lastInputTime = now;
+                    }
+                }
+            }
+        }
+
+        if (now - this.lastInputTime > this.AFK_TIMEOUT_MS) {
+            try {
+                if (window.pywebview && window.pywebview.api) {
+                    window.pywebview.api.quit_game();
+                }
+            } catch (err) {
+                console.error("Pywebview API nicht erreichbar", err);
+            }
+            window.close();
+            return; 
+        }
 
         const uncheckedDeltaTime = (timeStamp - this.lastTime) / 1000;
         this.lastTime = timeStamp;
