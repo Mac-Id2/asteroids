@@ -73,7 +73,7 @@ export class HighscoreScene extends Scene {
     }
 
     handleKeyDown(e) {
-        if (e.key === "Enter" || e.key === "Escape" || e.key === "Backspace") {
+        if (e.key === ' '|| e.key === "Escape" || e.key === "Backspace") {
             this.game.changeScene(new MenuScene(this.game));
         }
     }

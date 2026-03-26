@@ -88,7 +88,7 @@ export class MenuScene extends Scene {
             this.selectedOption = 1;
         }
         // Enter Taste
-        if (e.key === 'Enter') {
+        if (e.key === ' ') {
             if (this.selectedOption === 0) {
                 this.game.changeScene(new PlayScene(this.game));
             } else {
