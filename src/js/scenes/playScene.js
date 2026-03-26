@@ -92,7 +92,7 @@ export class PlayScene extends Scene {
     }
 
     handlePlayerInput(deltaTime) {
-        if (this.input.isDown('ArrowUp')) {
+        if (this.input.isDown('KeyW')) {
             this.ship.accelerate(true, deltaTime);
             this.game.sound?.playLoop('thrust');
         } else {
@@ -100,8 +100,8 @@ export class PlayScene extends Scene {
             this.game.sound?.stopLoop('thrust');
         }
 
-        if (this.input.isDown('ArrowLeft')) this.ship.rotate(1, deltaTime);
-        if (this.input.isDown('ArrowRight')) this.ship.rotate(-1, deltaTime);
+        if (this.input.isDown('KeyA')) this.ship.rotate(1, deltaTime);
+        if (this.input.isDown('KeyD')) this.ship.rotate(-1, deltaTime);
 
         if (this.input.isDown('Space')) {
             this.bulletManager.fireBullet(this.ship);
