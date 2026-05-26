@@ -8,7 +8,7 @@ export class MenuScene extends Scene {
     constructor(game) {
         super(game);
 
-        // --- 1. NEU: Auswahl-Status für Tastatur (0 = Start, 1 = Highscores) ---
+        // Auswahl-Status für Tastatur (0 = Start, 1 = Highscores)
         this.selectedOption = 0;
 
         try {
@@ -48,7 +48,7 @@ export class MenuScene extends Scene {
             name: 'Sun'
         };
 
-        // --- PLANETEN KONFIGURATION (Deine Werte behalten) ---
+        // --- PLANETEN KONFIGURATION ---
         this.planets = [
             { name: 'Mercury', orbitRadius: startBuffer + step * 0, visualRadius: 25, speed: 0.48, angle: Math.random() * 6 },
             { name: 'Venus', orbitRadius: startBuffer + step * 1, visualRadius: 40, speed: 0.36, angle: Math.random() * 6 },
@@ -59,37 +59,34 @@ export class MenuScene extends Scene {
             { name: 'Neptune', orbitRadius: startBuffer + step * 6, visualRadius: 95, speed: 0.06, angle: Math.random() * 6 }
         ];
 
-        // Deko Asteroiden
         this.backgroundAsteroids = [];
         for (let i = 0; i < 8; i++) {
             this.backgroundAsteroids.push(
                 new Asteroid(Math.random() * this.game.canvas.width, Math.random() * this.game.canvas.height, Math.random() > 0.5 ? 3 : 2)
             );
         }
-
-        // --- 2. NEU: Tastatur Listener aktivieren ---
-        this.keydownHandler = (e) => this.handleKeyboardInput(e);
-        window.addEventListener('keydown', this.keydownHandler);
     }
 
     onDestroy() {
-        // Wichtig: Listener sauber entfernen
-        window.removeEventListener('keydown', this.keydownHandler);
+        // Bereinigt, da Steuerung jetzt sauber über game.js läuft
     }
 
-    // --- 3. NEU: Tasten-Logik ---
-    handleKeyboardInput(e) {
-        // Pfeil Hoch oder W
-        if (e.key === 'ArrowUp' || e.key === 'w') {
+    /**
+     * Tasten-Logik (wird automatisch von game.js aufgerufen)
+     */
+    handleKeyDown(e) {
+        if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
             this.selectedOption = 0;
         }
-        // Pfeil Runter oder S
-        if (e.key === 'ArrowDown' || e.key === 's') {
+        if (e.key === 'ArrowDown' || e.key === 's' || e.key === 'S') {
             this.selectedOption = 1;
         }
-        // Enter Taste
-        if (e.key === ' ') {
+        // Reagiert auf Enter ODER Leertaste zum Starten
+        if (e.key === 'Enter' || e.key === ' ') {
             if (this.selectedOption === 0) {
+                if (this.game.led) {
+                    this.game.led.triggerEvent('sys_start_ast'); 
+                }
                 this.game.changeScene(new PlayScene(this.game));
             } else {
                 this.game.changeScene(new HighscoreScene(this.game));
@@ -100,7 +97,6 @@ export class MenuScene extends Scene {
     update(deltaTime) {
         if (this.background) this.background.update(deltaTime);
 
-        // --- PLANETEN UPDATE ---
         this.planets.forEach(p => {
             p.angle += p.speed * deltaTime;
             p.x = this.sun.x + Math.cos(p.angle) * p.orbitRadius;
@@ -108,7 +104,6 @@ export class MenuScene extends Scene {
             p.currentVisualRadius = p.visualRadius;
         });
 
-        // Asteroiden update
         this.backgroundAsteroids.forEach(asteroid => {
             asteroid.update(deltaTime);
             asteroid.rotation += 0.01 * deltaTime;
@@ -125,40 +120,33 @@ export class MenuScene extends Scene {
     }
 
     draw(ctx) {
-        // 1. Hintergrund
         if (this.background) this.background.draw(ctx);
         else { ctx.fillStyle = "black"; ctx.fillRect(0, 0, this.game.canvas.width, this.game.canvas.height); }
 
-        // 2. ORBIT LINIEN
         this.drawOrbitLines(ctx);
 
-        // 3. PLANETEN
         this.planets.forEach(p => {
             this.drawImagePlanet(ctx, p);
         });
 
-        // 4. Asteroiden
         ctx.save();
         ctx.shadowBlur = 10; ctx.shadowColor = "#555";
         this.backgroundAsteroids.forEach(a => a.draw(ctx));
         ctx.restore();
 
-        // 5. UI (Titel & Buttons)
         ctx.save();
         ctx.font = '14px "Segoe UI", "Verdana", sans-serif';
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.7)'; // Leicht transparentes Weiß
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
         ctx.textAlign = 'left';
         ctx.textBaseline = 'top';
-        ctx.fillText("developed by Kevin, Maik and Enis", 20, 20); // 20px Abstand vom Rand
+        ctx.fillText("developed by Kevin, Maik and Enis", 20, 20);
         ctx.restore();
-        // HINWEIS: drawMenuBackground wurde entfernt, damit der Schatten weg ist!
 
         this.drawTitle(ctx);
 
         const cx = this.game.canvas.width / 2;
         const cy = this.game.canvas.height / 2;
 
-        // --- 4. ÄNDERUNG: Buttons leuchten je nach Keyboard-Auswahl ---
         this.drawNeonButton(ctx, "START", cx, cy - 30, this.selectedOption === 0);
         this.drawNeonButton(ctx, "HIGHSCORES", cx, cy + 60, this.selectedOption === 1, 25);
     }
@@ -208,7 +196,6 @@ export class MenuScene extends Scene {
         ctx.restore();
     }
 
-    // --- 5. NEU: Verbesserte Button-Optik (Schriftart) ---
     drawNeonButton(ctx, text, x, y, isHovered, fontSize = 35) {
         const width = 240;
         const height = 60;
@@ -227,21 +214,16 @@ export class MenuScene extends Scene {
             ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
         }
 
-        ctx.lineWidth = 2; // Etwas dünner für schärfere Optik
+        ctx.lineWidth = 2;
         ctx.fillRect(left, y, width, height);
         ctx.strokeRect(left, y, width, height);
 
-        // Text Styling: Kein Glow auf dem Text selbst, bessere Schriftart
         ctx.shadowBlur = 0;
         ctx.fillStyle = isHovered ? "white" : "#BBBBBB";
-
-        // "Segoe UI" ist Standard auf Windows, "Verdana" als Fallback
         ctx.font = `bold ${fontSize}px "Segoe UI", "Verdana", sans-serif`;
 
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-
-        // +2 Pixel Versatz damit es optisch mittig wirkt
         ctx.fillText(text, x, y + height / 2 + 2);
 
         ctx.restore();

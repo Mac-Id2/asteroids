@@ -77,6 +77,11 @@ export class AstroidManager {
 
 
     spawnNewAstroids(destroyedAstroid) {
+        if (this.scene && this.scene.game && this.scene.game.led) {
+            // Wenn size 1 zerstört wird = kleiner Effekt, sonst großer Effekt
+            const eventKey = destroyedAstroid.size === 1 ? 'ast_small' : 'ast_large';
+            this.scene.game.led.triggerEvent(eventKey);
+        }
 
         //console.log("ON ASTROID DESTROYED: SPAWN NEW ASTROIDS")
 

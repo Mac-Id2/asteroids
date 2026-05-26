@@ -12,13 +12,18 @@ export class Game {
         this.lastInputTime = Date.now();
         this.AFK_TIMEOUT_MS = 180000;
 
+        // LED initialisieren und verbinden (NUR HIER!)
+        this.led = new LedManager();
+        this.led.connect();
+
         // RESIZE SETUP
         window.addEventListener('resize', () => this.resize());
         window.addEventListener('keydown', (e) => {
             this.lastInputTime = Date.now();
             
-            // --- NEU: Sicherere Abfrage für Q und Escape ---
+            // --- Sicherere Abfrage für Q und Escape ---
             if (e.key === 'q' || e.key === 'Q' || e.key === 'Escape') {
+                if (this.led) this.led.triggerEvent('sys_end');
                 try {
                     // Versuche das Fenster über die Python-API zu "killen"
                     if (window.pywebview && window.pywebview.api) {
@@ -31,8 +36,8 @@ export class Game {
                 // Fallback: Normales Schließen immer zusätzlich aufrufen
                 window.close(); 
             }
-            // ----------------------------------------
 
+            // Reicht die Tasten an die Szene weiter
             if (this.currentScene && this.currentScene.handleKeyDown) {
                 this.currentScene.handleKeyDown(e);
             }
@@ -45,9 +50,6 @@ export class Game {
 
         // Sound
         this.sound = new SoundManager();
-
-        // LED
-        this.led = new LedManager();
 
         // Globale Variablen
         this.playerName = "Spieler";
@@ -79,7 +81,6 @@ export class Game {
     }
 
     changeScene(newScene) {
-        // WICHTIG: Die alte Szene aufräumen, bevor gewechselt wird!
         if (this.currentScene && this.currentScene.onDestroy) {
             this.currentScene.onDestroy();
         }
@@ -125,14 +126,10 @@ export class Game {
 
         const deltaTime = Math.min(uncheckedDeltaTime, 0.1);
 
-        // Screen clearen
         this.canvasContext.clearRect(0, 0, this.canvas.width, this.canvas.height);
-
-        // Sicherstellen, dass Hintergrund schwarz ist
         this.canvasContext.fillStyle = "black";
         this.canvasContext.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
-        // Szene zeichnen
         if (this.currentScene) {
             this.currentScene.update(deltaTime);
             this.currentScene.draw(this.canvasContext);
@@ -141,12 +138,8 @@ export class Game {
         requestAnimationFrame((t) => this.gameLoop(t));
     }
 
-    // --- HIGHSCORE SYSTEM (NEU: DIREKT AN PYTHON / JSON) ---
-
     saveHighScore(name, score, timeString) {
         try {
-            // Wir rufen die Python GameAPI (in der build.yml) auf.
-            // Python übernimmt ab hier komplett das Sortieren und speichert es in die asteroids_highscores.json!
             if (window.pywebview && window.pywebview.api) {
                 window.pywebview.api.save_highscore(name, score, timeString);
             } else {
@@ -156,10 +149,6 @@ export class Game {
             console.error("Fehler bei der Kommunikation mit Python:", e);
         }
     }
-    
-    // HINWEIS: Die alten Funktionen getHighScoresList() und getHighScore() wurden hier entfernt. 
-    // Sie werden in der game.js nicht mehr gebraucht, da die ui.js und highscoreScene.js
-    // die Liste jetzt selbstständig direkt von Python aus der JSON-Datei laden!
 }
 
 new Game();
