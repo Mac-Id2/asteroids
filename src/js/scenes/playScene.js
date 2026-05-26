@@ -1,12 +1,13 @@
 import { Scene } from '../core/scene.js';
-import { Ship } from '../GameObjects/ship.js';
-import { CollisionSystem } from '../systems/collision.js';
+import { Asteroid } from '../GameObjects/asteroid.js';
 import { GameOverScene } from './gameOverScene.js';
+import { CollisionSystem } from '../systems/collision.js'; 
 import { InputHandler } from '../core/input.js';
 import { BulletManager } from '../manager/bulletManager.js';
 import { AstroidManager } from '../manager/asteroidsManager.js';
 import { Laser } from '../GameObjects/bullet.js';
 import { StarBackground } from '../manager/background.js';
+import { Ship } from '../GameObjects/ship.js';
 
 export class PlayScene extends Scene {
 
@@ -14,81 +15,126 @@ export class PlayScene extends Scene {
         super(game);
 
         this.background = new StarBackground(
-            this.game.canvas.width,
-            this.game.canvas.height,
+            this.game.canvas.width, 
+            this.game.canvas.height, 
             false
         );
-
+        
         this.input = new InputHandler();
         this.gameTimer = 0;
-        //this.cKeyPressed = false;
+        
+        // --- GAMEPLAY-VARIABLEN FÜR LED-EFFEKTE ---
+        this.currentWave = 1;
+        this.nextLifeScore = 100; // Für deinen Schnelltest auf 100 Punkte gesetzt! (Später auf 10000 ändern)
+        
+        this.levelTransitionTimer = 0;
+        this.isTransitioningLevel = false;
 
-        // UI Reset
-        if  (this.game.ui) {
+        // UI Zurücksetzen
+        if (this.game.ui) {
             this.game.ui.score = 0;
             this.game.ui.currentHealth = 100;
             this.game.ui.lives = 3;
         }
 
-        // Manager
+        // Manager initialisieren
         this.bulletManager = new BulletManager(this.objects, this.game.sound);
         this.astroidManager = new AstroidManager(this.game.canvas.width, this.game.canvas.height, this.objects, this);
 
-        // Ship
-        this.ship = new Ship(
-            this.game.canvas.width / 2,
-            this.game.canvas.height / 2
-        );
+        // Spieler-Schiff erstellen
+        this.ship = new Ship(this.game.canvas.width / 2, this.game.canvas.height / 2);
         this.objects.setPlayer(this.ship);
 
-        // Collision System (WICHTIG)
-        this.collisionSystem = new CollisionSystem(
-            this.game,
-            this.astroidManager,
-            this.objects,
-            this.ship
-        );
+        // Kollisions-System aktivieren
+        this.collisionSystem = new CollisionSystem(this.game, this.astroidManager, this.objects, this.ship);
 
-        // Asteroiden
-        this.astroidManager.initAstroids(
-            5,
-            this.game.canvas.width,
-            this.game.canvas.height
-        );
-
-        this.game.led?.onGameStart();
+        // Erste Welle starten
+        this.astroidManager.initAstroids(5, this.game.canvas.width, this.game.canvas.height);
+        
+        // LED: Spielstart-Effekt zünden (Wipe)
+        this.game.led?.triggerEvent('sys_start_ast');
     }
 
     update(deltaTime) {
         this.gameTimer += deltaTime;
-
         this.background.update(deltaTime);
 
+        // Merken der Leben VOR den Kollisionen für die Schadens-Erkennung
+        const prevHealth = this.ship.health;
+
+        this.handlePlayerInput(deltaTime);
+        this.objects.update(deltaTime);
+        this.objects.getAll().forEach(o => this.screenWrap(o));
+
+        // Kollisionen ausführen (Hier verringert sich ggf. das Leben des Schiffs)
+        this.collisionSystem.checkCollisions(this.objects.getAll());
+
+        // UI-Anzeige aktualisieren
         if (this.game.ui) {
             this.game.ui.lives = Math.max(0, this.ship.health);
         }
 
-        if (this.ship.health <= 0) {
-            this.game.sound?.stopLoop('thrust');
-            this.game.sound?.play('gameover');
-            this.game.led?.onGameOver();
-            this.game.changeScene(
-                new GameOverScene(
-                    this.game,
-                    this.game.ui.score,
-                    this.game.ui.formatTime(this.gameTimer)
-                )
-            );
-            return;
+        // --- 1. AUTOMATISCHES EXTRA-LEBEN SYSTEM (`ast_life`) ---
+        if (this.game.ui && this.game.ui.score >= this.nextLifeScore) {
+            this.ship.health++; // Leben im Objekt erhöhen
+            
+            console.log(`[PlayScene]  Extra Leben erreicht bei ${this.nextLifeScore} Punkten!`);
+            this.game.led?.triggerEvent('ast_life'); // Goldenes Lauflicht zünden!
+            
+            this.nextLifeScore += 10000; // Nächstes Ziel setzen (z.B. bei 10100)
         }
 
-        this.handlePlayerInput(deltaTime);
+        // --- 2. SCHADENS-ERKENNUNG (`ast_death`) ---
+        if (this.ship.health < prevHealth && this.ship.health > 0) {
+            this.game.led?.triggerEvent('ast_death'); // Rotes Blinken bei Treffer
+        }
 
-        this.objects.update(deltaTime);
-        this.objects.getAll().forEach(o => this.screenWrap(o));
+        // --- 3. GAME OVER LOGIK (`ast_gameover`) ---
+        if (this.ship.health <= 0) {
+            try {
+                this.game.sound?.stopLoop('thrust');
+                this.game.sound?.play('gameover');
+                this.game.led?.triggerEvent('ast_gameover'); // Roter Full-Streifen
+                
+                this.game.changeScene(
+                    new GameOverScene(
+                        this.game, 
+                        this.game.ui.score, 
+                        this.game.ui.formatTime(this.gameTimer)
+                    )
+                );
+            } catch (err) { 
+                console.error("[PlayScene] Fehler beim Ausführen des Game Over:", err); 
+            }
+            return; // Loop hier sofort abbrechen!
+        }
 
-        this.collisionSystem.checkCollisions(this.objects.getAll());
-        this.astroidManager.update(deltaTime);
+        // --- 4. WAVE-UP / LEVEL COMPLETE SYSTEM (`ast_level`) ---
+        if (this.objects.getAstroids) {
+            const currentAsteroidsCount = this.objects.getAstroids().length;
+            
+            if (currentAsteroidsCount === 0 && !this.isTransitioningLevel) {
+                console.log(`[PlayScene] Welle ${this.currentWave} geklärt! Starte Lightshow.`);
+                this.game.led?.triggerEvent('ast_level'); // Regenbogen-Effekt zünden
+                this.isTransitioningLevel = true;
+                this.levelTransitionTimer = 3.5; // 3.5 Sekunden Pause für die Animation
+            }
+        }
+
+        // Weichensteuerung für den Levelübergang (Verhindert feindliche Spawns während des Regenbogens)
+        if (this.isTransitioningLevel) {
+            this.levelTransitionTimer -= deltaTime;
+            if (this.levelTransitionTimer <= 0) {
+                this.isTransitioningLevel = false;
+                this.currentWave++;
+                const spawnCount = 5 + (this.currentWave * 2);
+                console.log(`[PlayScene] 🚀Starte Welle ${this.currentWave} mit ${spawnCount} Asteroiden.`);
+                this.astroidManager.initAstroids(spawnCount, this.game.canvas.width, this.game.canvas.height);
+            }
+        } else {
+            // Manager darf nur arbeiten, wenn wir nicht in der Level-Pause sind
+            this.astroidManager.update(deltaTime);
+        }
     }
 
     handlePlayerInput(deltaTime) {
@@ -106,15 +152,6 @@ export class PlayScene extends Scene {
         if (this.input.isDown('Space')) {
             this.bulletManager.fireBullet(this.ship);
         }
-
-        // if (this.input.isDown('KeyC')) {
-        //     if (!this.cKeyPressed) {
-        //         this.ship.switchWeapon();
-        //         this.cKeyPressed = true;
-        //     }
-        // } else {
-        //     this.cKeyPressed = false;
-        // }
     }
 
     onDestroy() {
@@ -122,31 +159,41 @@ export class PlayScene extends Scene {
     }
 
     draw(ctx) {
-        ctx.fillStyle = 'black';
+        ctx.fillStyle = 'black'; 
         ctx.fillRect(0, 0, this.game.canvas.width, this.game.canvas.height);
-
-
+        
         this.background.draw(ctx);
         this.objects.draw(ctx);
 
+        // Text-Anzeige während der Level-Pause
+        if (this.isTransitioningLevel) {
+            ctx.save();
+            ctx.fillStyle = "#00FFFF"; 
+            ctx.font = "bold 30px monospace"; 
+            ctx.textAlign = "center";
+            ctx.fillText(`WELLE ${this.currentWave} ERLEDIGT!`, this.game.canvas.width / 2, this.game.canvas.height / 2 - 50);
+            ctx.font = "20px monospace"; 
+            ctx.fillStyle = "white";
+            ctx.fillText(`Nächste Welle startet gleich...`, this.game.canvas.width / 2, this.game.canvas.height / 2);
+            ctx.restore();
+        }
+        
         this.game.ui?.draw(ctx, this.ship.activeWeapon, this.gameTimer);
     }
 
     screenWrap(obj) {
-        const w = this.game.canvas.width;
+        const w = this.game.canvas.width; 
         const h = this.game.canvas.height;
-
-        if (obj instanceof Laser) {
-            if (obj.x < 0 || obj.x > w || obj.y < 0 || obj.y > h) {
-                obj.isDestroyed = true;
-            }
-            return;
+        
+        if (obj instanceof Laser) { 
+            if (obj.x < 0 || obj.x > w || obj.y < 0 || obj.y > h) obj.isDestroyed = true; 
+            return; 
         }
-
-        if (obj.x < -obj.collisionRadius) obj.x = w + obj.collisionRadius;
+        
+        if (obj.x < -obj.collisionRadius) obj.x = w + obj.collisionRadius; 
         else if (obj.x > w + obj.collisionRadius) obj.x = -obj.collisionRadius;
-
-        if (obj.y < -obj.collisionRadius) obj.y = h + obj.collisionRadius;
+        
+        if (obj.y < -obj.collisionRadius) obj.y = h + obj.collisionRadius; 
         else if (obj.y > h + obj.collisionRadius) obj.y = -obj.collisionRadius;
     }
 }
