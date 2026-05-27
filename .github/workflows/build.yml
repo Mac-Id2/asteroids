@@ -15,24 +15,36 @@ jobs:
   build:
     name: Build auf ${{ matrix.artifact_name }}
     runs-on: ${{ matrix.os }}
+    container: ${{ matrix.container }}
     strategy:
       fail-fast: false
       matrix:
         include:
           - os: windows-latest
             artifact_name: Windows
+            container: ''
           - os: macos-latest
             artifact_name: Mac_Silicon
+            container: ''
           - os: macos-latest
             artifact_name: Mac_Intel
+            container: ''
           - os: ubuntu-latest
             artifact_name: Linux
+            container: 'ubuntu:26.04'
 
     steps:
+      - name: Git im Container installieren (Nur Linux)
+        if: matrix.artifact_name == 'Linux'
+        run: |
+          apt-get update
+          DEBIAN_FRONTEND=noninteractive apt-get install -y git ca-certificates
+
       - name: Code auschecken
         uses: actions/checkout@v4
 
-      - name: Python installieren
+      - name: Python installieren (Nicht-Linux)
+        if: matrix.artifact_name != 'Linux'
         uses: actions/setup-python@v5
         with:
           python-version: '3.10'
@@ -40,16 +52,22 @@ jobs:
       - name: System-Pakete installieren (Nur Linux)
         if: matrix.artifact_name == 'Linux'
         run: |
-          sudo apt-get update
-          sudo apt-get install -y pkg-config libgirepository1.0-dev build-essential libgtk-3-dev libwebkit2gtk-4.1-dev python3-dev libcairo2-dev
+          DEBIAN_FRONTEND=noninteractive apt-get install -y \
+            python3 python3-pip python3-venv python3-dev \
+            pkg-config libgirepository1.0-dev build-essential \
+            libgtk-3-dev libwebkit2gtk-4.1-dev libcairo2-dev \
+            zip
 
       - name: Abhängigkeiten installieren
         shell: bash
         run: |
-          python -m pip install --upgrade pip
-          pip install "setuptools<69.0.0" pywebview pyinstaller bottle
           if [[ "${{ matrix.artifact_name }}" == "Linux" ]]; then
-            pip install "PyGObject==3.48.2" pycairo
+            python3 -m pip install --upgrade pip --break-system-packages
+            python3 -m pip install --break-system-packages \
+              "setuptools<69.0.0" pywebview pyinstaller bottle PyGObject pycairo
+          else
+            python -m pip install --upgrade pip
+            pip install "setuptools<69.0.0" pywebview pyinstaller bottle
           fi
 
       - name: Wrapper-Skript automatisch erstellen
@@ -145,7 +163,7 @@ jobs:
             arch -x86_64 pip install "setuptools<69.0.0" pywebview pyinstaller bottle --force-reinstall
             arch -x86_64 pyinstaller --noconsole --name game --add-data "src:src" game_wrapper.py
           elif [[ "${{ matrix.artifact_name }}" == "Linux" ]]; then
-            pyinstaller --noconsole --name game --hidden-import gi --hidden-import bottle --add-data "src:src" game_wrapper.py
+            python3 -m PyInstaller --noconsole --name game --hidden-import gi --hidden-import bottle --add-data "src:src" game_wrapper.py
           elif [[ "${{ matrix.artifact_name }}" == "Windows" ]]; then
             pyinstaller --noconsole --name game --add-data "src;src" game_wrapper.py
           else
@@ -159,7 +177,12 @@ jobs:
 
       - name: Archivieren (ZIP erstellen)
         shell: bash
-        run: python -c "import shutil; shutil.make_archive('Asteroids-${{ matrix.artifact_name }}', 'zip', 'dist/game')"
+        run: |
+          if [[ "${{ matrix.artifact_name }}" == "Linux" ]]; then
+            python3 -c "import shutil; shutil.make_archive('Asteroids-${{ matrix.artifact_name }}', 'zip', 'dist/game')"
+          else
+            python -c "import shutil; shutil.make_archive('Asteroids-${{ matrix.artifact_name }}', 'zip', 'dist/game')"
+          fi
 
       - name: Test-Artifact hochladen
         uses: actions/upload-artifact@v4
