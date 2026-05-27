@@ -51,8 +51,6 @@ export class PlayScene extends Scene {
         // Erste Welle starten
         this.astroidManager.initAstroids(5, this.game.canvas.width, this.game.canvas.height);
         
-        // LED: Spielstart-Effekt zünden (Wipe)
-        this.game.led?.triggerEvent('sys_start_ast');
     }
 
     update(deltaTime) {
@@ -82,11 +80,6 @@ export class PlayScene extends Scene {
             this.game.led?.triggerEvent('ast_life'); // Goldenes Lauflicht zünden!
             
             this.nextLifeScore += 10000; // Nächstes Ziel setzen (z.B. bei 10100)
-        }
-
-        // --- 2. SCHADENS-ERKENNUNG (`ast_death`) ---
-        if (this.ship.health < prevHealth && this.ship.health > 0) {
-            this.game.led?.triggerEvent('ast_death'); // Rotes Blinken bei Treffer
         }
 
         // --- 3. GAME OVER LOGIK (`ast_gameover`) ---

@@ -137,6 +137,7 @@ LedManager.EVENTS = {
     si_death: [{ cmd: 'effect', chain: 'A', type: 'blink', segment: 99, color: {r:255,g:0,b:0}, speed: 150, repeat: 2, priority: 3 }],
     si_gameover: [{ cmd: 'effect', chain: 'A', type: 'fill', segment: 99, color: {r:255,g:0,b:0}, speed: 100, repeat: 1, priority: 3 }],
     ast_small: [{ cmd: 'effect', chain: 'A', type: 'sparkle', segment: 99, color: {r:255,g:255,b:255}, speed: 50, repeat: 2, priority: 2 }],
+    ast_life: [{ cmd: 'effect', chain: 'A', type: 'chase', segment: 99, color: {r:255,g:215,b:0}, speed: 40, length: 10, repeat: 1, priority: 3 }],
     ast_large: [{ cmd: 'effect', chain: 'A', type: 'sparkle', segment: 99, color: {r:255,g:255,b:255}, speed: 50, repeat: 4, priority: 2 }],
     ast_level: [{ cmd: 'effect', chain: 'A', type: 'rainbow', segment: 99, color: {r:0,g:0,b:0}, speed: 20, repeat: 2, priority: 3 }],
     ast_death: [{ cmd: 'effect', chain: 'A', type: 'blink', segment: 99, color: {r:255,g:0,b:0}, speed: 150, repeat: 3, priority: 3 }],
