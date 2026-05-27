@@ -11,10 +11,17 @@ export class Game {
 
         this.lastInputTime = Date.now();
         this.AFK_TIMEOUT_MS = 180000;
-
-        // LED initialisieren und verbinden (NUR HIER!)
-        this.led = new LedManager();
+        this.led = new LedManager('ws://localhost:8765', {
+            onConnect: () => {
+                console.log('%c[Game] LED-Verbindung steht! Starte Intro-Wipe.', 'color: #00ff88; font-weight: bold;');
+                this.led.triggerEvent('sys_start_ast'); // Zündet den Effekt erst, wenn der Socket bereit ist!
+            },
+            onDisconnect: () => {
+                console.warn('[Game] 🔌 LED-Verbindung verloren.');
+            }
+        });
         this.led.connect();
+
 
         // RESIZE SETUP
         window.addEventListener('resize', () => this.resize());
