@@ -62,8 +62,9 @@ jobs:
         shell: bash
         run: |
           if [[ "${{ matrix.artifact_name }}" == "Linux" ]]; then
-            python3 -m pip install --upgrade pip --break-system-packages
-            python3 -m pip install --break-system-packages \
+            python3 -m venv /opt/buildenv
+            /opt/buildenv/bin/pip install --upgrade pip
+            /opt/buildenv/bin/pip install \
               "setuptools<69.0.0" pywebview pyinstaller bottle PyGObject pycairo
           else
             python -m pip install --upgrade pip
@@ -163,14 +164,13 @@ jobs:
             arch -x86_64 pip install "setuptools<69.0.0" pywebview pyinstaller bottle --force-reinstall
             arch -x86_64 pyinstaller --noconsole --name game --add-data "src:src" game_wrapper.py
           elif [[ "${{ matrix.artifact_name }}" == "Linux" ]]; then
-            python3 -m PyInstaller --noconsole --name game --hidden-import gi --hidden-import bottle --add-data "src:src" game_wrapper.py
+            /opt/buildenv/bin/pyinstaller --noconsole --name game --hidden-import gi --hidden-import bottle --add-data "src:src" game_wrapper.py
           elif [[ "${{ matrix.artifact_name }}" == "Windows" ]]; then
             pyinstaller --noconsole --name game --add-data "src;src" game_wrapper.py
           else
             pyinstaller --noconsole --name game --add-data "src:src" game_wrapper.py
           fi
           
-          # Ausführungsrechte für Unix-Systeme (Linux & Mac)
           if [[ "${{ matrix.os }}" != "windows-latest" ]]; then
             chmod +x dist/game/game || true
           fi
@@ -179,7 +179,7 @@ jobs:
         shell: bash
         run: |
           if [[ "${{ matrix.artifact_name }}" == "Linux" ]]; then
-            python3 -c "import shutil; shutil.make_archive('Asteroids-${{ matrix.artifact_name }}', 'zip', 'dist/game')"
+            /opt/buildenv/bin/python -c "import shutil; shutil.make_archive('Asteroids-${{ matrix.artifact_name }}', 'zip', 'dist/game')"
           else
             python -c "import shutil; shutil.make_archive('Asteroids-${{ matrix.artifact_name }}', 'zip', 'dist/game')"
           fi
