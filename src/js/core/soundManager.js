@@ -10,6 +10,14 @@ export class SoundManager {
             gameover:   this._load('gameover.mp3'),
         };
         this.sounds.thrust.loop = true;
+
+        this.setVolume('thrust', 0.3);
+        this.setVolume('fire', 0.5);
+        this.setVolume('bangSmall', 0.3);
+        this.setVolume('bangMedium', 0.3);
+        this.setVolume('bangLarge', 0.3);
+        this.setVolume('damage', 0.5);
+        this.setVolume('gameover', 1.0);
     }
 
     _load(filename) {
@@ -17,6 +25,12 @@ export class SoundManager {
         const audio = new Audio(url);
         audio.preload = 'auto';
         return audio;
+    }
+
+    setVolume(name, volume) {
+        const sound = this.sounds[name];
+        if (!sound) return;
+        sound.volume = volume;
     }
 
     play(name) {
