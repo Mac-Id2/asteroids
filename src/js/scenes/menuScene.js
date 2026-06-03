@@ -68,13 +68,15 @@ export class MenuScene extends Scene {
     }
 
     onDestroy() {
-        // Bereinigt, da Steuerung jetzt sauber über game.js läuft
+        this.game.sound?.stopLoop('menuMusic');
     }
 
     /**
      * Tasten-Logik (wird automatisch von game.js aufgerufen)
      */
     handleKeyDown(e) {
+        this.game.sound?.playLoop('menuMusic');
+
         if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
             this.selectedOption = 0;
         }

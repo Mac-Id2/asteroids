@@ -1,5 +1,4 @@
-import { Laser } from '../GameObjects/bullet.js';
-// NEUER IMPORT PFAD:
+import { Laser } from '../GameObjects/laser.js';
 import { WEAPON_CONFIG } from '../config/weaponConfig.js';
 
 export class BulletManager {

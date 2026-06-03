@@ -1,104 +1,83 @@
 import { Asteroid } from "../GameObjects/asteroid.js"
 
-
-
-
-export class AstroidManager {
+export class AsteroidManager {
     constructor(canvasWidth, canvasHeight, objectList, scene) {
         this.canvasHeight = canvasHeight;
         this.canvasWidth = canvasWidth;
         this.objectList = objectList;
         this.scene = scene;
 
-        // Timer für den Spawn-Intervall (statt setTimeout)
-        this.spawnCheckTimer = 0;
+        this.timeSinceLastSpawnCheck = 0;
         this.spawnInterval = 10;
 
         this.checkAndSpawn();
     }
 
-    // Diese Methode wird JEDEN Frame von der PlayScene aufgerufen
     update(deltaTime) {
-        this.spawnCheckTimer += deltaTime;
+        this.timeSinceLastSpawnCheck += deltaTime;
 
-
-        //console.log("Time Checker: current - " + this.spawnCheckTimer + " -- to reach - " + this.spawnInterval);
-
-        if (this.spawnCheckTimer >= this.spawnInterval) {
+        if (this.timeSinceLastSpawnCheck >= this.spawnInterval) {
             this.checkAndSpawn();
-            this.spawnCheckTimer = 0; // Timer zurücksetzen
+            this.timeSinceLastSpawnCheck = 0;
         }
     }
 
     checkAndSpawn() {
-
-        //console.warn("SPAWN ROTATION");
-
         const currentTimer = this.scene.gameTimer;
         const targetAmount = Math.floor(this.getAmountToSpawn(currentTimer));
-        const currentAmount = this.objectList.getAstroids().length;
+        const currentAmount = this.objectList.getAsteroids().length;
 
         if (currentAmount < targetAmount) {
             const amountToSpawn = targetAmount - currentAmount;
-            //console.log(`Spawning ${amountToSpawn} new asteroids. Difficulty: ${targetAmount}. Current Amount: ${currentAmount}`);
             this.initAstroids(amountToSpawn);
         }
     }
 
     getAmountToSpawn(currentTime) {
-        const m = 0.5; // Etwas langsamer steigend
-        const b = 5;      // Wir starten immer mit mindestens 3
-        const maxAstroids = 40; // Obergrenze, damit es spielbar bleibt
+        const growthRate = 0.5;
+        const startAmount = 5;
+        const maxAsteroids = 40;
 
-        const amount = m * currentTime + b;
-        return Math.min(amount, maxAstroids);
+        return Math.min(growthRate * currentTime + startAmount, maxAsteroids);
     }
 
     initAstroids(amount) {
         const centerX = this.canvasWidth / 2;
         const centerY = this.canvasHeight / 2;
+        const spawnMargin = 80;
 
         for (let i = 0; i < amount; i++) {
             let x, y;
             const side = Math.floor(Math.random() * 4);
-            const margin = 80; // Etwas mehr Puffer
 
             switch (side) {
-                case 0: x = Math.random() * this.canvasWidth; y = -margin; break; // Oben
-                case 1: x = this.canvasWidth + margin; y = Math.random() * this.canvasHeight; break; // Rechts
-                case 2: x = Math.random() * this.canvasWidth; y = this.canvasHeight + margin; break; // Unten
-                case 3: x = -margin; y = Math.random() * this.canvasHeight; break; // Links
+                case 0: x = Math.random() * this.canvasWidth;  y = -spawnMargin; break;
+                case 1: x = this.canvasWidth + spawnMargin;    y = Math.random() * this.canvasHeight; break;
+                case 2: x = Math.random() * this.canvasWidth;  y = this.canvasHeight + spawnMargin; break;
+                case 3: x = -spawnMargin;                      y = Math.random() * this.canvasHeight; break;
             }
 
-            // Hier übergeben wir centerX und centerY als Ziel
             this.objectList.add(new Asteroid(x, y, 3, centerX, centerY));
         }
     }
 
-
-    spawnNewAstroids(destroyedAstroid) {
+    spawnNewAstroids(destroyedAsteroid) {
         if (this.scene && this.scene.game && this.scene.game.led) {
-            // Wenn size 1 zerstört wird = kleiner Effekt, sonst großer Effekt
-            const eventKey = destroyedAstroid.size === 1 ? 'ast_small' : 'ast_large';
+            const eventKey = destroyedAsteroid.size === 1 ? 'ast_small' : 'ast_large';
             this.scene.game.led.triggerEvent(eventKey);
         }
 
-        //console.log("ON ASTROID DESTROYED: SPAWN NEW ASTROIDS")
-
-        const nextSize = destroyedAstroid.size - 1;
+        const nextSize = destroyedAsteroid.size - 1;
 
         if (nextSize > 0) {
-            // Logik: Ein Großer gibt 2 Mittlere, ein Mittlerer gibt 3 Kleine
-            const count = destroyedAstroid.size === 3 ? 2 : 3;
+            const count = destroyedAsteroid.size === 3 ? 2 : 3;
 
             for (let i = 0; i < count; i++) {
-                // Versatz damit sie sich nicht überlagern
-                const spawnOffset = destroyedAstroid.baseRadius * 0.5;
+                const spawnOffset = destroyedAsteroid.baseRadius * 0.5;
                 const offsetX = (Math.random() - 0.5) * spawnOffset;
                 const offsetY = (Math.random() - 0.5) * spawnOffset;
-                this.objectList.add(new Asteroid(destroyedAstroid.x + offsetX, destroyedAstroid.y + offsetY, nextSize))
+                this.objectList.add(new Asteroid(destroyedAsteroid.x + offsetX, destroyedAsteroid.y + offsetY, nextSize));
             }
         }
     }
-
 }

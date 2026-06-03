@@ -1,6 +1,6 @@
 import { Ship } from '../GameObjects/ship.js';
 import { Asteroid } from '../GameObjects/asteroid.js';
-import { Laser } from '../GameObjects/bullet.js';
+import { Laser } from '../GameObjects/laser.js';
 import { PowerUp } from '../GameObjects/powerUp.js';
 
 export class CollisionSystem {
@@ -14,7 +14,6 @@ export class CollisionSystem {
 
     checkCollisions() {
         const list = this.objects.getAll();
-
         for (let i = 0; i < list.length; i++) {
             for (let j = i + 1; j < list.length; j++) {
                 this.detect(list[i], list[j]);
@@ -25,17 +24,31 @@ export class CollisionSystem {
     detect(a, b) {
         if (a.isDestroyed || b.isDestroyed) return;
 
-        const dx = a.x - b.x;
-        const dy = a.y - b.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
+        const ship  = a instanceof Ship ? a : b instanceof Ship ? b : null;
+        const other = ship === a ? b : a;
 
-        if (dist < a.collisionRadius + b.collisionRadius) {
-            this.resolve(a, b);
+        if (ship) {
+            const circles = ship.getCollisionCircles();
+            for (const circle of circles) {
+                const dx   = circle.x - other.x;
+                const dy   = circle.y - other.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+                if (dist < circle.r + other.collisionRadius) {
+                    this.resolve(a, b);
+                    return;
+                }
+            }
+        } else {
+            const dx   = a.x - b.x;
+            const dy   = a.y - b.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist < a.collisionRadius + b.collisionRadius) {
+                this.resolve(a, b);
+            }
         }
     }
 
     resolve(a, b) {
-
         // Ship ↔ Asteroid
         if (
             (a instanceof Ship && b instanceof Asteroid) ||
@@ -80,7 +93,7 @@ export class CollisionSystem {
         if (ship.isInvincible) return;
 
         ship.hitShip();
-        ship.triggerInvulnerability?.(100);
+        ship.triggerInvulnerability?.(2000);
 
         this.game.ui?.takeDamage(33);
         this.game.sound?.play('damage');
@@ -99,7 +112,6 @@ export class CollisionSystem {
         this.game.sound?.play(bangMap[asteroid.size] ?? 'bangSmall');
         this.game.led?.onAsteroidDestroyed(asteroid.size);
 
-        // 🎁 PowerUp (keine Dopplung)
         if (Math.random() < 0.10) {
             const powerUp = new PowerUp(
                 asteroid.x,

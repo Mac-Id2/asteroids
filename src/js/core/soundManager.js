@@ -7,9 +7,13 @@ export class SoundManager {
             bangMedium: this._load('bangMedium.mp3'),
             bangLarge:  this._load('bangLarge.mp3'),
             damage:     this._load('damage.mp3'),
-            gameover:   this._load('gameover.mp3'),
+            gameover:    this._load('gameover.mp3'),
+            menuMusic:   this._load('menuMedlody.mp3'),
+            gameMusic:   this._load('gamePlayMelodie.mp3'),
         };
-        this.sounds.thrust.loop = true;
+        this.sounds.thrust.loop    = true;
+        this.sounds.menuMusic.loop = true;
+        this.sounds.gameMusic.loop = true;
 
         this.setVolume('thrust', 0.3);
         this.setVolume('fire', 0.5);
@@ -18,6 +22,8 @@ export class SoundManager {
         this.setVolume('bangLarge', 0.3);
         this.setVolume('damage', 0.5);
         this.setVolume('gameover', 1.0);
+        this.setVolume('menuMusic', 0.4);
+        this.setVolume('gameMusic', 0.4);
     }
 
     _load(filename) {

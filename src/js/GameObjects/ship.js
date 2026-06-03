@@ -11,26 +11,22 @@ export class Ship extends GameObject {
         this.thrusting = false;
 
         this.activeWeapon = 'Laser';
-        // Das funktioniert weiterhin, weil wir es oben importiert haben:
         this.weaponList = Object.keys(WEAPON_CONFIG);
         this.currentWeaponIndex = 0;
 
-        this.rotationSpeed = 4.0;  // Statt 0.05
-        this.acceleration = 300;   // Statt 1 (Pixel pro Sekunde^2)
-        this.friction = 0.5;       // Reibung (50% Verlust pro Sekunde)
+        this.rotationSpeed = 4.0;
+        this.acceleration = 300;
+        this.friction = 0.5;
     }
 
     setWeapon(weaponName) {
-    this.activeWeapon = weaponName;
-    this.currentWeaponIndex = this.weaponList.indexOf(weaponName);
-    //console.log("weapon changed to:", weaponName);
-}
-
+        this.activeWeapon = weaponName;
+        this.currentWeaponIndex = this.weaponList.indexOf(weaponName);
+    }
 
     switchWeapon() {
         this.currentWeaponIndex = (this.currentWeaponIndex + 1) % this.weaponList.length;
         this.activeWeapon = this.weaponList[this.currentWeaponIndex];
-        //console.log(`Waffe gewechselt zu: ${this.activeWeapon}`);
     }
 
     get muzzlePosition() {
@@ -42,8 +38,47 @@ export class Ship extends GameObject {
         };
     }
 
+    getShipVertices() {
+        return {
+            nose: {
+                x: this.x + 20 * Math.cos(this.angle),
+                y: this.y - 20 * Math.sin(this.angle)
+            },
+            left: {
+                x: this.x - 15 * (2/3 * Math.cos(this.angle) + Math.sin(this.angle)),
+                y: this.y + 15 * (2/3 * Math.sin(this.angle) - Math.cos(this.angle))
+            },
+            right: {
+                x: this.x - 15 * (2/3 * Math.cos(this.angle) - Math.sin(this.angle)),
+                y: this.y + 15 * (2/3 * Math.sin(this.angle) + Math.cos(this.angle))
+            }
+        };
+    }
+
+    getCollisionCircles() {
+        const r = 10;
+        const { nose, left, right } = this.getShipVertices();
+
+        const midLeft  = { x: (nose.x + left.x)  / 2, y: (nose.y + left.y)  / 2 };
+        const midRight = { x: (nose.x + right.x) / 2, y: (nose.y + right.y) / 2 };
+
+        const calculateInsetCircle = (px, py) => {
+            const dx = this.x - px;
+            const dy = this.y - py;
+            const len = Math.sqrt(dx * dx + dy * dy);
+            return { x: px + r * dx / len, y: py + r * dy / len, r };
+        };
+
+        return [
+            calculateInsetCircle(nose.x,    nose.y),
+            calculateInsetCircle(midLeft.x,  midLeft.y),
+            calculateInsetCircle(midRight.x, midRight.y),
+            calculateInsetCircle(left.x,     left.y),
+            calculateInsetCircle(right.x,    right.y),
+        ];
+    }
+
     rotate(dir, deltaTime) {
-        // dir ist 1 oder -1
         this.angle += dir * this.rotationSpeed * deltaTime;
     }
 
@@ -51,11 +86,9 @@ export class Ship extends GameObject {
         this.thrusting = isThrusting;
 
         if (isThrusting) {
-            // Wir addieren Beschleunigung * Zeit
             this.thrust.x += Math.cos(this.angle) * this.acceleration * deltaTime;
             this.thrust.y -= Math.sin(this.angle) * this.acceleration * deltaTime;
         } else {
-            // Reibung: Wir ziehen einen Prozentsatz pro Sekunde ab
             this.thrust.x -= this.thrust.x * this.friction * deltaTime;
             this.thrust.y -= this.thrust.y * this.friction * deltaTime;
         }
@@ -63,9 +96,9 @@ export class Ship extends GameObject {
 
     hitShip() { this.health -= 1; }
 
-    triggerInvulnerability(time) {
+    triggerInvulnerability(durationMs) {
         this.isInvincible = true;
-        setTimeout(() => this.isInvincible = false, 2000);
+        setTimeout(() => this.isInvincible = false, durationMs);
     }
 
     update(deltaTime) {
@@ -74,28 +107,18 @@ export class Ship extends GameObject {
     }
 
     draw(ctx) {
-        // ... (Dein Zeichen-Code hier einfügen) ...
-
-
         if (this.thrusting) {
-
-            const tailX = this.x - 10 * Math.cos(this.angle);
-            const tailY = this.y + 10 * Math.sin(this.angle);
-
-
-
-
             ctx.save();
 
-
             const flicker = 0.8 + Math.random() * 0.4;
+            const tailX = this.x - 10 * Math.cos(this.angle);
+            const tailY = this.y + 10 * Math.sin(this.angle);
             const flameTipX = this.x - (10 + 25 * flicker) * Math.cos(this.angle);
             const flameTipY = this.y + (10 + 25 * flicker) * Math.sin(this.angle);
-
-            const FlameLeftX = this.x - 8 * Math.cos(this.angle) + 5 * Math.sin(this.angle);
-            const FlameLeftY = this.y + 8 * Math.sin(this.angle) + 5 * Math.cos(this.angle);
-            const FlameRightX = this.x - 8 * Math.cos(this.angle) - 5 * Math.sin(this.angle);
-            const FlameRightY = this.y + 8 * Math.sin(this.angle) - 5 * Math.cos(this.angle);
+            const flameLeftX  = this.x - 8 * Math.cos(this.angle) + 5 * Math.sin(this.angle);
+            const flameLeftY  = this.y + 8 * Math.sin(this.angle) + 5 * Math.cos(this.angle);
+            const flameRightX = this.x - 8 * Math.cos(this.angle) - 5 * Math.sin(this.angle);
+            const flameRightY = this.y + 8 * Math.sin(this.angle) - 5 * Math.cos(this.angle);
 
             const gradient = ctx.createLinearGradient(tailX, tailY, flameTipX, flameTipY);
             gradient.addColorStop(0, 'yellow');
@@ -107,36 +130,28 @@ export class Ship extends GameObject {
             ctx.shadowColor = 'orange';
 
             ctx.beginPath();
-            ctx.moveTo(FlameLeftX, FlameLeftY);
+            ctx.moveTo(flameLeftX, flameLeftY);
             ctx.lineTo(flameTipX, flameTipY);
-            ctx.lineTo(FlameRightX, FlameRightY);
+            ctx.lineTo(flameRightX, flameRightY);
             ctx.closePath();
             ctx.fill();
 
             ctx.restore();
         }
 
-
-
-
-
-
+        const { nose, left, right } = this.getShipVertices();
 
         ctx.strokeStyle = this.isInvincible ? "yellow" : "white";
         ctx.lineWidth = 2;
         ctx.beginPath();
-        const noseX = this.x + 20 * Math.cos(this.angle);
-        const noseY = this.y - 20 * Math.sin(this.angle);
-        const leftX = this.x - 15 * (2 / 3 * Math.cos(this.angle) + Math.sin(this.angle));
-        const leftY = this.y + 15 * (2 / 3 * Math.sin(this.angle) - Math.cos(this.angle));
-        const rightX = this.x - 15 * (2 / 3 * Math.cos(this.angle) - Math.sin(this.angle));
-        const rightY = this.y + 15 * (2 / 3 * Math.sin(this.angle) + Math.cos(this.angle));
-
-        ctx.moveTo(noseX, noseY);
-        ctx.lineTo(leftX, leftY);
-        ctx.lineTo(rightX, rightY);
+        ctx.moveTo(nose.x, nose.y);
+        ctx.lineTo(left.x, left.y);
+        ctx.quadraticCurveTo(
+            this.x - 4 * Math.cos(this.angle),
+            this.y + 4 * Math.sin(this.angle),
+            right.x, right.y
+        );
         ctx.closePath();
         ctx.stroke();
-
     }
 }

@@ -1,28 +1,18 @@
-export class GameObject{
-
-    constructor(x = 0, y = 0, collisionRadius = 10){
-
+export class GameObject {
+    constructor(x = 0, y = 0, collisionRadius = 10) {
         this.x = x;
         this.y = y;
 
-
-        // Winkel (zeigt nach oben) und Geschwindigkeit
         this.angle = 90 / 180 * Math.PI;
         this.rotation = 0;
 
-
         this.collisionRadius = collisionRadius;
-
-        //Cleanup FLAG - Wenn true wird das Objekt gelöscht
         this.isDestroyed = false;
-
-
     }
 
+    update(deltaTime) {}
 
-    update(deltaTime){}
-    draw(canvasContext){}
-
+    draw(canvasContext) {}
 
     drawCollisionRadius(canvasContext) {
         canvasContext.beginPath();
@@ -31,5 +21,4 @@ export class GameObject{
         canvasContext.strokeStyle = "red";
         canvasContext.stroke();
     }
-
 }

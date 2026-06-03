@@ -2,20 +2,17 @@ import { GameObjectList } from "./gameObjectList.js";
 
 export class Scene {
     constructor(game) {
-        this.game = game; // Referenz zum Hauptspiel, um Szenen zu wechseln
-
+        this.game = game;
         this.objects = new GameObjectList();
     }
 
     update(deltaTime) {
-
         this.objects.update(deltaTime);
     }
-    
-    draw(ctx) {
 
+    draw(ctx) {
         this.objects.draw(ctx);
     }
 
-    handleInput(event) {} // Für Mausklicks oder Tasten
+    handleInput(event) {}
 }

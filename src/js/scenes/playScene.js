@@ -2,10 +2,10 @@ import { Scene } from '../core/scene.js';
 import { Asteroid } from '../GameObjects/asteroid.js';
 import { GameOverScene } from './gameOverScene.js';
 import { CollisionSystem } from '../systems/collision.js'; 
-import { InputHandler } from '../core/input.js';
+import { InputHandler } from '../core/inputHandler.js';
 import { BulletManager } from '../manager/bulletManager.js';
-import { AstroidManager } from '../manager/asteroidsManager.js';
-import { Laser } from '../GameObjects/bullet.js';
+import { AsteroidManager } from '../manager/asteroidsManager.js';
+import { Laser } from '../GameObjects/laser.js';
 import { StarBackground } from '../manager/background.js';
 import { Ship } from '../GameObjects/ship.js';
 
@@ -25,7 +25,7 @@ export class PlayScene extends Scene {
         
         // --- GAMEPLAY-VARIABLEN FÜR LED-EFFEKTE ---
         this.currentWave = 1;
-        this.nextLifeScore = 100; // Für deinen Schnelltest auf 100 Punkte gesetzt! (Später auf 10000 ändern)
+        this.nextLifeScore = 10000;
         
         this.levelTransitionTimer = 0;
         this.isTransitioningLevel = false;
@@ -39,7 +39,7 @@ export class PlayScene extends Scene {
 
         // Manager initialisieren
         this.bulletManager = new BulletManager(this.objects, this.game.sound);
-        this.astroidManager = new AstroidManager(this.game.canvas.width, this.game.canvas.height, this.objects, this);
+        this.astroidManager = new AsteroidManager(this.game.canvas.width, this.game.canvas.height, this.objects, this);
 
         // Spieler-Schiff erstellen
         this.ship = new Ship(this.game.canvas.width / 2, this.game.canvas.height / 2);
@@ -49,7 +49,9 @@ export class PlayScene extends Scene {
         this.collisionSystem = new CollisionSystem(this.game, this.astroidManager, this.objects, this.ship);
 
         // Erste Welle starten
-        this.astroidManager.initAstroids(5, this.game.canvas.width, this.game.canvas.height);
+        this.astroidManager.initAstroids(5);
+
+        this.game.sound?.playLoop('gameMusic');
         
     }
 
@@ -65,7 +67,7 @@ export class PlayScene extends Scene {
         this.objects.getAll().forEach(o => this.screenWrap(o));
 
         // Kollisionen ausführen (Hier verringert sich ggf. das Leben des Schiffs)
-        this.collisionSystem.checkCollisions(this.objects.getAll());
+        this.collisionSystem.checkCollisions();
 
         // UI-Anzeige aktualisieren
         if (this.game.ui) {
@@ -104,7 +106,7 @@ export class PlayScene extends Scene {
 
         // --- 4. WAVE-UP / LEVEL COMPLETE SYSTEM (`ast_level`) ---
         if (this.objects.getAstroids) {
-            const currentAsteroidsCount = this.objects.getAstroids().length;
+            const currentAsteroidsCount = this.objects.getAsteroids().length;
             
             if (currentAsteroidsCount === 0 && !this.isTransitioningLevel) {
                 console.log(`[PlayScene] Welle ${this.currentWave} geklärt! Starte Lightshow.`);
@@ -122,7 +124,7 @@ export class PlayScene extends Scene {
                 this.currentWave++;
                 const spawnCount = 5 + (this.currentWave * 2);
                 console.log(`[PlayScene] 🚀Starte Welle ${this.currentWave} mit ${spawnCount} Asteroiden.`);
-                this.astroidManager.initAstroids(spawnCount, this.game.canvas.width, this.game.canvas.height);
+                this.astroidManager.initAstroids(spawnCount);
             }
         } else {
             // Manager darf nur arbeiten, wenn wir nicht in der Level-Pause sind
@@ -149,6 +151,7 @@ export class PlayScene extends Scene {
 
     onDestroy() {
         this.game.sound?.stopLoop('thrust');
+        this.game.sound?.stopLoop('gameMusic');
     }
 
     draw(ctx) {
