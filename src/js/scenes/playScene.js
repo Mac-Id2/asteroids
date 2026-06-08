@@ -52,7 +52,6 @@ export class PlayScene extends Scene {
         this.astroidManager.initAstroids(5);
 
         this.game.sound?.playLoop('gameMusic');
-        
     }
 
     update(deltaTime) {

@@ -8,7 +8,7 @@ export class SoundManager {
             bangLarge:  this._load('bangLarge.mp3'),
             damage:     this._load('damage.mp3'),
             gameover:    this._load('gameover.mp3'),
-            menuMusic:   this._load('menuMedlody.mp3'),
+            menuMusic:   this._load('menuMelody.mp3'),
             gameMusic:   this._load('gamePlayMelodie.mp3'),
         };
         this.sounds.thrust.loop    = true;
@@ -41,6 +41,7 @@ export class SoundManager {
 
     play(name) {
         const sound = this.sounds[name];
+        console.log("######"+JSON.stringify(sound));
         if (!sound) return;
         sound.currentTime = 0;
         sound.play().catch(() => {});
@@ -49,7 +50,8 @@ export class SoundManager {
     playLoop(name) {
         const sound = this.sounds[name];
         if (!sound || !sound.paused) return;
-        sound.play().catch(() => {});
+        console.log(`playLoop(): ${name}`);
+        sound.play().catch((error) => {console.log(error)});
     }
 
     stopLoop(name) {

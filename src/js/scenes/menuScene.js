@@ -65,6 +65,10 @@ export class MenuScene extends Scene {
                 new Asteroid(Math.random() * this.game.canvas.width, Math.random() * this.game.canvas.height, Math.random() > 0.5 ? 3 : 2)
             );
         }
+
+        console.log( JSON.stringify(this.game.sound));
+        this.game.sound?.playLoop('menuMusic');
+        console.log("############");
     }
 
     onDestroy() {
@@ -75,8 +79,6 @@ export class MenuScene extends Scene {
      * Tasten-Logik (wird automatisch von game.js aufgerufen)
      */
     handleKeyDown(e) {
-        this.game.sound?.playLoop('menuMusic');
-
         if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W') {
             this.selectedOption = 0;
         }
